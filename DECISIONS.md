@@ -51,7 +51,7 @@ because it makes the stored result depend on arrival order, which is exactly
 the non-determinism the flaky-link scenario is designed to expose.
 
 **Status:** LOCKED (dedup grain and key), OPEN (conflict-logging table is a
-nice-to-have, may be cut if time is tight — see scope cuts, section 9).
+nice-to-have, may be cut if time is tight — see scope cuts, section 10).
 
 ---
 
@@ -270,11 +270,48 @@ sanity-check against actual on-device storage growth at 2M+ rows.
 
 ---
 
-## 9. Scope cuts (updated as the project proceeds)
+## 9. Flutter state management architecture
+
+**Question:** Should this app use BLoC/Cubit, and if yes, how should state be
+split so local-first, event-time, and idempotency constraints stay enforceable?
+
+**Decision:** Use a **hybrid BLoC/Cubit approach** with strict boundaries:
+
+- **Cubit for read-heavy screen state** (simple query + refresh flows):
+  - Fleet home queries and filter changes.
+  - Vehicle detail queries and refresh.
+- **Bloc for event-sequenced domain workflows** where ordering matters:
+  - Alerts (dismissal, undo window, escalation/de-escalation, self-heal).
+  - Geofence transition processing.
+  - Trip lifecycle updates from confirmed transitions.
+  - Telemetry ingest / replay / backfill orchestration.
+
+**Hard rule:** DuckDB remains the **only source of truth** for domain data.
+After any mutation, UI state is refreshed by re-querying DuckDB projections.
+No in-memory "shadow" fleet/alert/trip state is treated as canonical.
+
+**Why this choice:**
+- Preserves deterministic outcomes under duplicate/out-of-order/late packets.
+- Keeps invariants in SQL constraints + repository logic instead of widgets.
+- Makes live defense easier: event flow is explicit and replayable in tests.
+
+**Alternatives considered:**
+- Cubit-only for everything — rejected because multi-step workflows (undo,
+  transition confirmation, trip revision) are easier to reason about and test
+  as explicit events.
+- Bloc-only for everything — rejected as unnecessary ceremony for simple
+  read/refresh screens.
+
+**Status:** LOCKED — framework pattern and state-boundary rule are set before
+Phase 1 implementation.
+
+---
+
+## 10. Scope cuts (updated as the project proceeds)
 
 None yet — this section will be filled in as features are built and
 anything is deliberately trimmed, with the reasoning for each cut.
 
 ---
 
-*Last updated: Phase 0 (initial decisions, before any implementation).*
+*Last updated: Pre-Phase 1 (architecture and state-management decisions locked before implementation).*
