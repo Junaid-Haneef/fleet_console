@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const MainApp());
-}
+import 'src/app.dart';
+import 'src/core/database/app_database.dart';
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
-        ),
-      ),
-    );
+  final database = AppDatabase();
+
+  try {
+    await database.initialize();
+    runApp(MainApp(database: database));
+  } catch (error, stackTrace) {
+    runApp(BootstrapErrorApp(error: error, stackTrace: stackTrace));
   }
 }
