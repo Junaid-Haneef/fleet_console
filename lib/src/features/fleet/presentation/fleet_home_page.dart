@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/database/app_database.dart';
+import '../../vehicle/data/vehicle_detail_repository.dart';
+import '../../vehicle/presentation/vehicle_detail_cubit.dart';
+import '../../vehicle/presentation/vehicle_detail_page.dart';
 import '../domain/fleet_home_models.dart';
 import 'fleet_home_cubit.dart';
 
@@ -39,7 +43,27 @@ class FleetHomePage extends StatelessWidget {
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final row = state.visibleRows[index];
-                        return _FleetVehicleTile(row: row);
+                        return _FleetVehicleTile(
+                          row: row,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (routeContext) {
+                                  final database = routeContext.read<AppDatabase>();
+                                  final repository = routeContext.read<VehicleDetailRepository>();
+
+                                  return BlocProvider<VehicleDetailCubit>(
+                                    create: (_) => VehicleDetailCubit(
+                                      database,
+                                      repository: repository,
+                                    ),
+                                    child: VehicleDetailPage(vehicleId: row.vehicleId),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        );
                       },
                     ),
             ),
@@ -95,40 +119,44 @@ class _FleetFilterChips extends StatelessWidget {
 }
 
 class _FleetVehicleTile extends StatelessWidget {
-  const _FleetVehicleTile({required this.row});
+  const _FleetVehicleTile({required this.row, required this.onTap});
 
   final FleetVehicleRow row;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    row.regNumber,
-                    style: Theme.of(context).textTheme.titleMedium,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      row.regNumber,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
-                ),
-                _StatusChip(status: row.status),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(row.model),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(child: Text('SOC: ${_formatPercent(row.soc)}')),
-                Expanded(child: Text('Range: ${_formatRange(row.rangeKm)}')),
-                _AlertBadge(severity: row.alertSeverity),
-              ],
-            ),
-          ],
+                  _StatusChip(status: row.status),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(row.model),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: Text('SOC: ${_formatPercent(row.soc)}')),
+                  Expanded(child: Text('Range: ${_formatRange(row.rangeKm)}')),
+                  _AlertBadge(severity: row.alertSeverity),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

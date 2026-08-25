@@ -6,7 +6,7 @@ import 'features/fleet/data/fleet_home_repository.dart';
 import 'features/fleet/presentation/fleet_home_cubit.dart';
 import 'features/fleet/presentation/fleet_home_page.dart';
 import 'features/telemetry/application/telemetry_ingest_bloc.dart';
-import 'features/vehicle/presentation/vehicle_detail_cubit.dart';
+import 'features/vehicle/data/vehicle_detail_repository.dart';
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key, required this.database});
@@ -16,20 +16,21 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fleetRepository = FleetHomeRepository(database);
+    final vehicleDetailRepository = VehicleDetailRepository(database);
 
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<AppDatabase>.value(value: database),
         RepositoryProvider<FleetHomeRepository>.value(value: fleetRepository),
+        RepositoryProvider<VehicleDetailRepository>.value(
+          value: vehicleDetailRepository,
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<FleetHomeCubit>(
             create: (_) =>
                 FleetHomeCubit(database, repository: fleetRepository)..refresh(),
-          ),
-          BlocProvider<VehicleDetailCubit>(
-            create: (_) => VehicleDetailCubit(database),
           ),
           BlocProvider<TelemetryIngestBloc>(
             create: (_) => TelemetryIngestBloc(database),

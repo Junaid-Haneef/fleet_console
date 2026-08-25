@@ -307,7 +307,38 @@ Phase 1 implementation.
 
 ---
 
-## 10. Scope cuts (updated as the project proceeds)
+## 10. Feature B readings register verdict semantics
+
+**Question:** Feature B defines verdict pills (`NORMAL`, `ALERT`, `STALE`) for
+SOC, range, speed, battery temperature, odometer, and last ping, but only SOC
+and battery temperature have explicit alert thresholds in the brief. How should
+fresh non-threshold signals be classified, and how should range relate to SOC?
+
+**Decision:**
+- **SOC:** `ALERT` when fresh and SOC < 20%, else `NORMAL` when fresh.
+- **Battery temperature:** `ALERT` when fresh and battery temp > 45C, else
+  `NORMAL` when fresh.
+- **Range:** when fresh, mirrors SOC verdict state (`ALERT` when fresh SOC is
+  alerting, otherwise `NORMAL`).
+- **Speed:** when fresh, always `NORMAL` (never independently `ALERT` in
+  Feature B).
+- **Odometer:** when fresh, always `NORMAL` (never independently `ALERT` in
+  Feature B).
+- **Last ping:** staleness-only verdict (`NORMAL` when <= 10 min old,
+  `STALE` when older), never `ALERT`.
+- **Never reported:** value renders as "-" and **no pill at all** for that row
+  (distinct from stale).
+
+**Why:** this keeps Feature B aligned with the spec's explicit alert semantics
+without inventing undocumented thresholds for speed/odometer/last ping, while
+preserving the user's chosen rule that range should track battery-risk context
+via SOC.
+
+**Status:** LOCKED for Phase 4.
+
+---
+
+## 11. Scope cuts (updated as the project proceeds)
 
 ### Phase 3 (Fleet home)
 

@@ -1,30 +1,56 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/database/app_database.dart';
+import '../data/vehicle_detail_repository.dart';
+import '../domain/vehicle_detail_models.dart';
 part 'vehicle_detail_state.dart';
 
 class VehicleDetailCubit extends Cubit<VehicleDetailState> {
-  VehicleDetailCubit(this._database)
-    : super(const VehicleDetailState.initial(vehicleId: null));
+  VehicleDetailCubit(
+    AppDatabase database, {
+    VehicleDetailRepository? repository,
+  }) : _repository = repository ?? VehicleDetailRepository(database),
+       super(const VehicleDetailState.initial(vehicleId: null));
 
-  final AppDatabase _database;
+  final VehicleDetailRepository _repository;
 
   Future<void> load(String vehicleId) async {
     emit(
       state.copyWith(
         status: VehicleDetailStatus.loading,
         vehicleId: vehicleId,
-        statusMessage: 'Loading',
+        statusMessage: 'Loading vehicle detail',
+        errorMessage: null,
       ),
     );
 
-    final ok = await _database.healthCheck();
+    try {
+      final snapshot = await _repository.fetchSnapshot(vehicleId);
 
-    emit(
-      state.copyWith(
-        status: VehicleDetailStatus.ready,
-        statusMessage: ok ? 'DuckDB ready' : 'DuckDB health check failed',
-      ),
-    );
+      emit(
+        state.copyWith(
+          status: VehicleDetailStatus.ready,
+          snapshot: snapshot,
+          statusMessage: 'Loaded ${snapshot.identity.regNumber}',
+          errorMessage: null,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: VehicleDetailStatus.error,
+          statusMessage: 'Failed to load vehicle detail',
+          errorMessage: error.toString(),
+        ),
+      );
+    }
+  }
+
+  Future<void> refresh() async {
+    final vehicleId = state.vehicleId;
+    if (vehicleId == null) {
+      return;
+    }
+    await load(vehicleId);
   }
 }
