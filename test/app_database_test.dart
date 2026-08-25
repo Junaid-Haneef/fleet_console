@@ -297,5 +297,50 @@ void main() {
 
       await database.close();
     });
+
+    test('clearAllTablesData clears telemetry and vehicles in transaction', () async {
+      final fakeDb = _FakeDatabase();
+      final fakeConn = _FakeConnection();
+
+      final database = AppDatabase(
+        databasePathResolver: () async => dbPath,
+        duckDbOpen: (_) async => fakeDb,
+        duckDbConnect: (_) async => fakeConn,
+      );
+
+      await database.initialize();
+      fakeConn.executedSql.clear();
+
+      await database.clearAllTablesData();
+
+      expect(fakeConn.executedSql.first, 'BEGIN TRANSACTION');
+      expect(fakeConn.executedSql, contains('DELETE FROM signal_readings'));
+      expect(fakeConn.executedSql, contains('DELETE FROM location_readings'));
+      expect(fakeConn.executedSql, contains('DELETE FROM vehicles'));
+      expect(fakeConn.executedSql, isNot(contains('DELETE FROM app_meta')));
+      expect(fakeConn.executedSql.last, 'COMMIT');
+
+      await database.close();
+    });
+
+    test('clearAllTablesData can include app_meta rows', () async {
+      final fakeDb = _FakeDatabase();
+      final fakeConn = _FakeConnection();
+
+      final database = AppDatabase(
+        databasePathResolver: () async => dbPath,
+        duckDbOpen: (_) async => fakeDb,
+        duckDbConnect: (_) async => fakeConn,
+      );
+
+      await database.initialize();
+      fakeConn.executedSql.clear();
+
+      await database.clearAllTablesData(includeAppMeta: true);
+
+      expect(fakeConn.executedSql, contains('DELETE FROM app_meta'));
+
+      await database.close();
+    });
   });
 }

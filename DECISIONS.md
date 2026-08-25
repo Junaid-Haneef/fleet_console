@@ -309,6 +309,36 @@ Phase 1 implementation.
 
 ## 10. Scope cuts (updated as the project proceeds)
 
+### Phase 3 (Fleet home)
+
+- **Clarification:** what counts as vehicle "last ping" for OFFLINE in Feature A.
+  - **Decision:** use the latest `event_time` across both `signal_readings` and
+    `location_readings` for each vehicle.
+  - **Why:** this matches the app's current telemetry foundation where packets
+    can carry scalar signals, location, or both; reachability should reflect
+    the latest event-time telemetry evidence, not just GPS-specific rows.
+  - **Status:** LOCKED for Phase 3.
+
+- **Clarification:** how to classify MOVING/IDLE/STOPPED when speed or
+  ignition readings are stale or missing but the vehicle is not OFFLINE.
+  - **Decision:** Feature A uses latest-known speed/ignition values regardless
+    of age once OFFLINE is ruled out.
+  - **Why:** keeps status deterministic and avoids introducing a fifth
+    "UNKNOWN" chip not in the spec's required set.
+  - **Status:** LOCKED for Phase 3; can be revisited when Feature B's stale
+    verdict UX is fully in place.
+
+- **Clarification:** alert badge behavior in Fleet Home before Feature C alert
+  lifecycle tables exist.
+  - **Decision:** render a computed placeholder severity from fresh latest
+    scalar values only:
+    - `Critical` when SOC < 10 or battery temp > 45.
+    - `Warning` when SOC < 20 (and not already critical).
+    - No badge otherwise.
+  - **Why:** satisfies Feature A's list-level badge signal now, while preserving
+    the decision that dismissal/undo persistence belongs to Feature C.
+  - **Status:** LOCKED for Phase 3 as a temporary behavior.
+
 ### Phase 2 (schema + synthetic telemetry ingest)
 
 - **Cut:** defer conflict-logging (`rejected_readings`) for same-key,

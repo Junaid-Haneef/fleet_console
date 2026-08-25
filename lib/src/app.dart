@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'core/database/app_database.dart';
+import 'features/fleet/data/fleet_home_repository.dart';
 import 'features/fleet/presentation/fleet_home_cubit.dart';
+import 'features/fleet/presentation/fleet_home_page.dart';
 import 'features/telemetry/application/telemetry_ingest_bloc.dart';
 import 'features/vehicle/presentation/vehicle_detail_cubit.dart';
 
@@ -13,12 +15,18 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fleetRepository = FleetHomeRepository(database);
+
     return MultiRepositoryProvider(
-      providers: [RepositoryProvider<AppDatabase>.value(value: database)],
+      providers: [
+        RepositoryProvider<AppDatabase>.value(value: database),
+        RepositoryProvider<FleetHomeRepository>.value(value: fleetRepository),
+      ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<FleetHomeCubit>(
-            create: (_) => FleetHomeCubit(database)..refresh(),
+            create: (_) =>
+                FleetHomeCubit(database, repository: fleetRepository)..refresh(),
           ),
           BlocProvider<VehicleDetailCubit>(
             create: (_) => VehicleDetailCubit(database),
@@ -30,7 +38,7 @@ class MainApp extends StatelessWidget {
         child: MaterialApp(
           title: 'Fleet Console',
           home: Scaffold(
-            appBar: AppBar(title: const Text('Fleet Console - Phase 2')),
+            appBar: AppBar(title: const Text('Fleet Console - Phase 3')),
             body: BlocListener<TelemetryIngestBloc, TelemetryIngestState>(
               listenWhen: (previous, current) =>
                   previous.status != current.status &&
@@ -38,59 +46,43 @@ class MainApp extends StatelessWidget {
               listener: (context, _) {
                 context.read<FleetHomeCubit>().refresh();
               },
-              child: BlocBuilder<FleetHomeCubit, FleetHomeState>(
-                builder: (context, fleetState) {
-                  return BlocBuilder<TelemetryIngestBloc, TelemetryIngestState>(
-                    builder: (context, ingestState) {
-                      final replayRunning =
-                          ingestState.status == TelemetryIngestStatus.running;
-
-                      return Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Database path: ${database.databasePath ?? 'pending'}',
-                            ),
-                            const SizedBox(height: 8),
-                            Text('FleetHome status: ${fleetState.status.name}'),
-                            const SizedBox(height: 8),
-                            Text('Fleet message: ${fleetState.statusMessage}'),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Database path: ${database.databasePath ?? 'pending'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        BlocBuilder<TelemetryIngestBloc, TelemetryIngestState>(
+                          builder: (context, ingestState) {
+                            final replayRunning =
+                                ingestState.status == TelemetryIngestStatus.running;
+                            return OutlinedButton(
                               onPressed: replayRunning
                                   ? null
-                                  : () {
+                                  : () async{
                                       context.read<TelemetryIngestBloc>().add(
                                         const TelemetryReplayRequested(),
                                       );
                                     },
                               child: Text(
-                                replayRunning
-                                    ? 'Replay running...'
-                                    : 'Run synthetic telemetry replay',
+                                replayRunning ? 'Replaying...' : 'Replay telemetry',
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text('Replay status: ${ingestState.status.name}'),
-                            const SizedBox(height: 8),
-                            Text('Replay message: ${ingestState.message}'),
-                            ElevatedButton(
-                              onPressed: () async {
-                                final rows = await database.fetchIndexes(
-                                  tableName: 'signal_readings',
-                                );
-                                print(rows);
-                              },
-                              child: Text('fetch'),
-                            ),
-                          ],
+                            );
+                          },
                         ),
-                      );
-                    },
-                  );
-                },
+                      ],
+                    ),
+                  ),
+                  const Expanded(child: FleetHomePage()),
+                ],
               ),
             ),
           ),

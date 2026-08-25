@@ -117,6 +117,26 @@ class AppDatabase {
     return rows.isNotEmpty && rows.first.isNotEmpty && rows.first.first == 1;
   }
 
+  Future<void> clearAllTablesData({bool includeAppMeta = false}) async {
+    final conn = _requireConnection();
+
+    await conn.execute('BEGIN TRANSACTION');
+    try {
+      await conn.execute('DELETE FROM signal_readings');
+      await conn.execute('DELETE FROM location_readings');
+      await conn.execute('DELETE FROM vehicles');
+
+      if (includeAppMeta) {
+        await conn.execute('DELETE FROM app_meta');
+      }
+
+      await conn.execute('COMMIT');
+    } catch (_) {
+      await conn.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
   dynamic _requireConnection() {
     if (!_initialized || _connection == null) {
       throw StateError('AppDatabase is not initialized.');

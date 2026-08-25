@@ -4,7 +4,7 @@ import 'synthetic_telemetry_generator.dart';
 
 class TelemetryRepository {
   TelemetryRepository(this._database, {SyntheticTelemetryGenerator? generator})
-    : _generator = generator ?? const SyntheticTelemetryGenerator();
+    : _generator = generator ?? SyntheticTelemetryGenerator();
 
   final AppDatabase _database;
   final SyntheticTelemetryGenerator _generator;
