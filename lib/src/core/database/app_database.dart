@@ -79,6 +79,39 @@ class AppDatabase {
     );
   }
 
+  Future<List<List<Object?>>> fetchTableRows(
+    String tableName, {
+    int limit = 100,
+  }) async {
+    final safeTableName = _sanitizeIdentifier(tableName);
+    if (limit < 1) {
+      throw ArgumentError.value(limit, 'limit', 'Must be at least 1.');
+    }
+
+    return query('SELECT * FROM $safeTableName LIMIT $limit');
+  }
+
+  Future<List<List<Object?>>> fetchIndexes({
+    String? tableName,
+  }) async {
+    if (tableName == null) {
+      return query('SELECT * FROM duckdb_indexes() ORDER BY table_name, index_name');
+    }
+
+    final safeTableName = _sanitizeIdentifier(tableName);
+    return query(
+      "SELECT * FROM duckdb_indexes() WHERE table_name = '$safeTableName' ORDER BY index_name",
+    );
+  }
+
+  Future<bool> indexExists(String indexName) async {
+    final safeIndexName = _sanitizeIdentifier(indexName);
+    final rows = await query(
+      "SELECT 1 FROM duckdb_indexes() WHERE index_name = '$safeIndexName' LIMIT 1",
+    );
+    return rows.isNotEmpty;
+  }
+
   Future<bool> healthCheck() async {
     final rows = await query('SELECT 1 AS ok');
     return rows.isNotEmpty && rows.first.isNotEmpty && rows.first.first == 1;
@@ -91,6 +124,19 @@ class AppDatabase {
     return _connection;
   }
 
+  String _sanitizeIdentifier(String identifier) {
+    final normalized = identifier.trim();
+    final isValid = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(normalized);
+    if (!isValid) {
+      throw ArgumentError.value(
+        identifier,
+        'tableName',
+        'Only letters, numbers, and underscore are allowed.',
+      );
+    }
+    return normalized;
+  }
+
   Future<void> _runBootstrap(dynamic conn) async {
     await conn.execute('''
       CREATE TABLE IF NOT EXISTS app_meta (
@@ -101,8 +147,52 @@ class AppDatabase {
     ''');
 
     await conn.execute('''
+      CREATE TABLE IF NOT EXISTS vehicles (
+        vehicle_id VARCHAR PRIMARY KEY,
+        reg_number VARCHAR NOT NULL,
+        model VARCHAR NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT now()
+      )
+    ''');
+
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS signal_readings (
+        vehicle_id VARCHAR NOT NULL,
+        event_time TIMESTAMP NOT NULL,
+        signal_name VARCHAR NOT NULL,
+        value DOUBLE NOT NULL,
+        packet_id VARCHAR,
+        received_time TIMESTAMP NOT NULL,
+        PRIMARY KEY (vehicle_id, event_time, signal_name)
+      )
+    ''');
+
+    await conn.execute('''
+      CREATE INDEX IF NOT EXISTS idx_signal_readings_latest
+      ON signal_readings (vehicle_id, signal_name, event_time DESC)
+    ''');
+
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS location_readings (
+        vehicle_id VARCHAR NOT NULL,
+        event_time TIMESTAMP NOT NULL,
+        lat DOUBLE NOT NULL,
+        lon DOUBLE NOT NULL,
+        accuracy_m DOUBLE NOT NULL,
+        packet_id VARCHAR,
+        received_time TIMESTAMP NOT NULL,
+        PRIMARY KEY (vehicle_id, event_time)
+      )
+    ''');
+
+    await conn.execute('''
+      CREATE INDEX IF NOT EXISTS idx_location_readings_latest
+      ON location_readings (vehicle_id, event_time DESC)
+    ''');
+
+    await conn.execute('''
       INSERT INTO app_meta (key, value)
-      VALUES ('schema_version', 'phase1')
+      VALUES ('schema_version', 'phase2')
       ON CONFLICT (key) DO UPDATE
       SET value = EXCLUDED.value, updated_at = now()
     ''');

@@ -24,17 +24,32 @@ class _FakeQueryResult {
 class _FakeConnection {
   bool disposed = false;
   final Map<String, String> appMeta = {};
+  final List<String> executedSql = [];
+  final List<String> queriedSql = [];
 
   Future<void> execute(String sql) async {
+    executedSql.add(sql);
     if (sql.contains('INSERT INTO app_meta') && sql.contains("'schema_version'")) {
-      appMeta['schema_version'] = 'phase1';
+      if (sql.contains("'phase2'")) {
+        appMeta['schema_version'] = 'phase2';
+      } else {
+        appMeta['schema_version'] = 'phase1';
+      }
     }
   }
 
   Future<_FakeQueryResult> query(String sql) async {
+    queriedSql.add(sql);
+
     if (sql.contains('SELECT 1 AS ok')) {
       return _FakeQueryResult([
         [1],
+      ]);
+    }
+
+    if (sql.contains('SELECT * FROM vehicles LIMIT')) {
+      return _FakeQueryResult([
+        ['VH-001', 'KA-01-AB-1200', 'E-Truck X1'],
       ]);
     }
 
@@ -48,6 +63,47 @@ class _FakeConnection {
       ]);
     }
 
+    if (sql.contains('SELECT * FROM duckdb_indexes() ORDER BY table_name, index_name')) {
+      return _FakeQueryResult([
+        [
+          'main',
+          'fleet_console',
+          'idx_location_readings_latest',
+          'location_readings',
+          'CREATE INDEX idx_location_readings_latest ON location_readings(vehicle_id, event_time DESC)',
+        ],
+        [
+          'main',
+          'fleet_console',
+          'idx_signal_readings_latest',
+          'signal_readings',
+          'CREATE INDEX idx_signal_readings_latest ON signal_readings(vehicle_id, signal_name, event_time DESC)',
+        ],
+      ]);
+    }
+
+    if (sql.contains("SELECT * FROM duckdb_indexes() WHERE table_name = 'signal_readings'")) {
+      return _FakeQueryResult([
+        [
+          'main',
+          'fleet_console',
+          'idx_signal_readings_latest',
+          'signal_readings',
+          'CREATE INDEX idx_signal_readings_latest ON signal_readings(vehicle_id, signal_name, event_time DESC)',
+        ],
+      ]);
+    }
+
+    if (sql.contains("SELECT 1 FROM duckdb_indexes() WHERE index_name = 'idx_signal_readings_latest'")) {
+      return _FakeQueryResult([
+        [1],
+      ]);
+    }
+
+    if (sql.contains("SELECT 1 FROM duckdb_indexes() WHERE index_name = 'idx_missing'")) {
+      return _FakeQueryResult([]);
+    }
+
     return _FakeQueryResult([]);
   }
 
@@ -57,13 +113,13 @@ class _FakeConnection {
 }
 
 void main() {
-  group('AppDatabase Phase 1 smoke tests', () {
+  group('AppDatabase Phase 2 smoke tests', () {
     late Directory tempDir;
     late String dbPath;
 
     setUp(() {
-      tempDir = Directory.systemTemp.createTempSync('fleet_console_phase1_');
-      dbPath = p.join(tempDir.path, 'phase1_test.duckdb');
+      tempDir = Directory.systemTemp.createTempSync('fleet_console_phase2_');
+      dbPath = p.join(tempDir.path, 'phase2_test.duckdb');
     });
 
     tearDown(() {
@@ -118,9 +174,126 @@ void main() {
       );
 
       expect(rows.length, 1);
-      expect(rows.first.first, 'phase1');
+      expect(rows.first.first, 'phase2');
       expect(openCalls, 1);
       expect(connectCalls, 1);
+
+      await database.close();
+    });
+
+    test('bootstrap creates phase2 telemetry tables', () async {
+      final fakeDb = _FakeDatabase();
+      final fakeConn = _FakeConnection();
+
+      final database = AppDatabase(
+        databasePathResolver: () async => dbPath,
+        duckDbOpen: (_) async => fakeDb,
+        duckDbConnect: (_) async => fakeConn,
+      );
+
+      await database.initialize();
+
+      expect(
+        fakeConn.executedSql.any(
+          (sql) => sql.contains('CREATE TABLE IF NOT EXISTS vehicles'),
+        ),
+        isTrue,
+      );
+      expect(
+        fakeConn.executedSql.any(
+          (sql) => sql.contains('CREATE TABLE IF NOT EXISTS signal_readings'),
+        ),
+        isTrue,
+      );
+      expect(
+        fakeConn.executedSql.any(
+          (sql) => sql.contains('CREATE TABLE IF NOT EXISTS location_readings'),
+        ),
+        isTrue,
+      );
+
+      await database.close();
+    });
+
+    test('fetchTableRows returns rows from requested table', () async {
+      final fakeDb = _FakeDatabase();
+      final fakeConn = _FakeConnection();
+
+      final database = AppDatabase(
+        databasePathResolver: () async => dbPath,
+        duckDbOpen: (_) async => fakeDb,
+        duckDbConnect: (_) async => fakeConn,
+      );
+
+      await database.initialize();
+      final rows = await database.fetchTableRows('vehicles', limit: 1);
+
+      expect(rows.length, 1);
+      expect(rows.first.first, 'VH-001');
+      expect(
+        fakeConn.queriedSql.last,
+        'SELECT * FROM vehicles LIMIT 1',
+      );
+
+      await database.close();
+    });
+
+    test('fetchTableRows rejects unsafe table name', () async {
+      final fakeDb = _FakeDatabase();
+      final fakeConn = _FakeConnection();
+
+      final database = AppDatabase(
+        databasePathResolver: () async => dbPath,
+        duckDbOpen: (_) async => fakeDb,
+        duckDbConnect: (_) async => fakeConn,
+      );
+
+      await database.initialize();
+
+      expect(
+        () => database.fetchTableRows('vehicles; DROP TABLE vehicles'),
+        throwsArgumentError,
+      );
+
+      await database.close();
+    });
+
+    test('fetchIndexes returns index metadata', () async {
+      final fakeDb = _FakeDatabase();
+      final fakeConn = _FakeConnection();
+
+      final database = AppDatabase(
+        databasePathResolver: () async => dbPath,
+        duckDbOpen: (_) async => fakeDb,
+        duckDbConnect: (_) async => fakeConn,
+      );
+
+      await database.initialize();
+
+      final allIndexes = await database.fetchIndexes();
+      expect(allIndexes.length, 2);
+
+      final signalIndexes = await database.fetchIndexes(tableName: 'signal_readings');
+      expect(signalIndexes.length, 1);
+      expect(signalIndexes.first[2], 'idx_signal_readings_latest');
+
+      await database.close();
+    });
+
+    test('indexExists reports whether an index is present', () async {
+      final fakeDb = _FakeDatabase();
+      final fakeConn = _FakeConnection();
+
+      final database = AppDatabase(
+        databasePathResolver: () async => dbPath,
+        duckDbOpen: (_) async => fakeDb,
+        duckDbConnect: (_) async => fakeConn,
+      );
+
+      await database.initialize();
+
+      expect(await database.indexExists('idx_signal_readings_latest'), isTrue);
+      expect(await database.indexExists('idx_missing'), isFalse);
 
       await database.close();
     });

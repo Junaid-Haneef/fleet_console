@@ -309,9 +309,30 @@ Phase 1 implementation.
 
 ## 10. Scope cuts (updated as the project proceeds)
 
-None yet — this section will be filled in as features are built and
-anything is deliberately trimmed, with the reasoning for each cut.
+### Phase 2 (schema + synthetic telemetry ingest)
+
+- **Cut:** defer conflict-logging (`rejected_readings`) for same-key,
+  different-value duplicates.
+  - **Why:** section 1 already locks idempotent first-write-wins semantics;
+    keeping conflict logging out of Phase 2 keeps the foundation smaller and
+    easier to defend live.
+  - **Impact:** same-key conflicts are ignored after first insert in this
+    phase; explicit conflict audit is postponed.
+
+- **Cut:** do not create feature tables for geofences, transitions, trips, or
+  alert dismissal metadata in Phase 2.
+  - **Why:** these belong to later feature phases (D/E/C) and would add
+    premature schema surface area before the event-time ingest foundation is
+    proven.
+  - **Impact:** Phase 2 schema is limited to telemetry foundation tables only.
+
+- **Cut:** do not run the scale backfill target (500 vehicles / 2M+ rows) in
+  Phase 2.
+  - **Why:** scale exercise is explicitly Phase 8; Phase 2 focuses on
+    correctness under flaky arrival behavior.
+  - **Impact:** generator defaults stay small and deterministic for fast local
+    verification.
 
 ---
 
-*Last updated: Pre-Phase 1 (architecture and state-management decisions locked before implementation).*
+*Last updated: Phase 2 start (scope cuts recorded before schema implementation).*

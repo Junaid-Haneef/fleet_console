@@ -30,23 +30,68 @@ class MainApp extends StatelessWidget {
         child: MaterialApp(
           title: 'Fleet Console',
           home: Scaffold(
-            appBar: AppBar(title: const Text('Fleet Console - Phase 1')),
-            body: BlocBuilder<FleetHomeCubit, FleetHomeState>(
-              builder: (context, state) {
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Database path: ${database.databasePath ?? 'pending'}'),
-                      const SizedBox(height: 8),
-                      Text('FleetHome status: ${state.status.name}'),
-                      const SizedBox(height: 8),
-                      Text('Message: ${state.statusMessage}'),
-                    ],
-                  ),
-                );
+            appBar: AppBar(title: const Text('Fleet Console - Phase 2')),
+            body: BlocListener<TelemetryIngestBloc, TelemetryIngestState>(
+              listenWhen: (previous, current) =>
+                  previous.status != current.status &&
+                  current.status == TelemetryIngestStatus.success,
+              listener: (context, _) {
+                context.read<FleetHomeCubit>().refresh();
               },
+              child: BlocBuilder<FleetHomeCubit, FleetHomeState>(
+                builder: (context, fleetState) {
+                  return BlocBuilder<TelemetryIngestBloc, TelemetryIngestState>(
+                    builder: (context, ingestState) {
+                      final replayRunning =
+                          ingestState.status == TelemetryIngestStatus.running;
+
+                      return Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Database path: ${database.databasePath ?? 'pending'}',
+                            ),
+                            const SizedBox(height: 8),
+                            Text('FleetHome status: ${fleetState.status.name}'),
+                            const SizedBox(height: 8),
+                            Text('Fleet message: ${fleetState.statusMessage}'),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: replayRunning
+                                  ? null
+                                  : () {
+                                      context.read<TelemetryIngestBloc>().add(
+                                        const TelemetryReplayRequested(),
+                                      );
+                                    },
+                              child: Text(
+                                replayRunning
+                                    ? 'Replay running...'
+                                    : 'Run synthetic telemetry replay',
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text('Replay status: ${ingestState.status.name}'),
+                            const SizedBox(height: 8),
+                            Text('Replay message: ${ingestState.message}'),
+                            ElevatedButton(
+                              onPressed: () async {
+                                final rows = await database.fetchIndexes(
+                                  tableName: 'signal_readings',
+                                );
+                                print(rows);
+                              },
+                              child: Text('fetch'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ),
