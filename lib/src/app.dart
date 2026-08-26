@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 
 import 'core/database/app_database.dart';
 import 'features/alerts/data/alerts_repository.dart';
@@ -11,6 +12,13 @@ import 'features/fleet/presentation/fleet_home_page.dart';
 import 'features/telemetry/bloc/telemetry_ingest_bloc.dart';
 import 'features/vehicle/data/vehicle_detail_repository.dart';
 
+class ShellTabController extends ValueNotifier<int> {
+  ShellTabController() : super(0);
+
+  void showFleet() => value = 0;
+  void showAlerts() => value = 1;
+}
+
 class MainApp extends StatelessWidget {
   const MainApp({super.key, required this.database});
 
@@ -21,6 +29,7 @@ class MainApp extends StatelessWidget {
     final fleetRepository = FleetHomeRepository(database);
     final vehicleDetailRepository = VehicleDetailRepository(database);
     final alertsRepository = AlertsRepository(database);
+    final shellTabController = ShellTabController();
 
     return MultiRepositoryProvider(
       providers: [
@@ -30,6 +39,7 @@ class MainApp extends StatelessWidget {
           value: vehicleDetailRepository,
         ),
         RepositoryProvider<AlertsRepository>.value(value: alertsRepository),
+        ListenableProvider<ShellTabController>.value(value: shellTabController),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -46,7 +56,11 @@ class MainApp extends StatelessWidget {
         ],
         child: MaterialApp(
           title: 'Fleet Console',
-          home: _MainShell(database: database, alertsRepository: alertsRepository),
+          home: _MainShell(
+            database: database,
+            alertsRepository: alertsRepository,
+            shellTabController: shellTabController,
+          ),
         ),
       ),
     );
@@ -57,18 +71,18 @@ class _MainShell extends StatefulWidget {
   const _MainShell({
     required this.database,
     required this.alertsRepository,
+    required this.shellTabController,
   });
 
   final AppDatabase database;
   final AlertsRepository alertsRepository;
+  final ShellTabController shellTabController;
 
   @override
   State<_MainShell> createState() => _MainShellState();
 }
 
 class _MainShellState extends State<_MainShell> {
-  int _tabIndex = 0;
-
   @override
   Widget build(BuildContext context) {
     return BlocListener<TelemetryIngestBloc, TelemetryIngestState>(
@@ -112,49 +126,56 @@ class _MainShellState extends State<_MainShell> {
             ),
           ],
         ),
-        body: IndexedStack(
-          index: _tabIndex,
-          children: [
-            Column(
+        body: ValueListenableBuilder<int>(
+          valueListenable: widget.shellTabController,
+          builder: (context, tabIndex, _) {
+            return IndexedStack(
+              index: tabIndex,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                  child: Text(
-                    'Database path: ${widget.database.databasePath ?? 'pending'}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                      child: Text(
+                        'Database path: ${widget.database.databasePath ?? 'pending'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Expanded(child: FleetHomePage()),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                const Expanded(child: FleetHomePage()),
+                const AlertsPage(),
               ],
-            ),
-            const AlertsPage(),
-          ],
+            );
+          },
         ),
         bottomNavigationBar: BlocBuilder<AlertsBloc, AlertsState>(
           builder: (context, state) {
             final activeCount = state.activeCount;
-
-            return BottomNavigationBar(
-              currentIndex: _tabIndex,
-              onTap: (nextIndex) {
-                setState(() {
-                  _tabIndex = nextIndex;
-                });
+            return ValueListenableBuilder<int>(
+              valueListenable: widget.shellTabController,
+              builder: (context, tabIndex, _) {
+                return BottomNavigationBar(
+                  currentIndex: tabIndex,
+                  onTap: (nextIndex) {
+                    widget.shellTabController.value = nextIndex;
+                  },
+                  items: [
+                    const BottomNavigationBarItem(
+                      icon: Icon(Icons.directions_car_outlined),
+                      activeIcon: Icon(Icons.directions_car),
+                      label: 'Fleet',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: _AlertTabIcon(count: activeCount),
+                      activeIcon: _AlertTabIcon(count: activeCount, active: true),
+                      label: 'Alert',
+                    ),
+                  ],
+                );
               },
-              items: [
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.directions_car_outlined),
-                  activeIcon: Icon(Icons.directions_car),
-                  label: 'Fleet',
-                ),
-                BottomNavigationBarItem(
-                  icon: _AlertTabIcon(count: activeCount),
-                  activeIcon: _AlertTabIcon(count: activeCount, active: true),
-                  label: 'Alert',
-                ),
-              ],
             );
           },
         ),

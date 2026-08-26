@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fleet_console/src/core/database/app_database.dart';
+import 'package:fleet_console/src/features/alerts/bloc/alerts_bloc.dart';
+import 'package:fleet_console/src/features/alerts/data/alerts_repository.dart';
+import 'package:fleet_console/src/features/alerts/models/alert_models.dart';
 import 'package:fleet_console/src/features/vehicle/data/vehicle_detail_repository.dart';
 import 'package:fleet_console/src/features/vehicle/models/vehicle_detail_models.dart';
 import 'package:fleet_console/src/features/vehicle/cubit/vehicle_detail_cubit.dart';
@@ -18,6 +21,23 @@ class _FakeConnection {
   Future<dynamic> query(String sql) async => throw UnimplementedError();
 
   Future<void> dispose() async {}
+}
+
+class _StubAlertsRepository extends AlertsRepository {
+  _StubAlertsRepository()
+    : super(
+        AppDatabase(
+          databasePathResolver: () async => 'memory://alerts-nav',
+          duckDbOpen: (_) async => _FakeDatabase(),
+          duckDbConnect: (_) async => _FakeConnection(),
+        ),
+      );
+
+  @override
+  Future<List<ActiveAlertRow>> fetchActiveAlerts() async => const <ActiveAlertRow>[];
+
+  @override
+  Future<int> fetchActiveAlertCount() async => 0;
 }
 
 class _StubVehicleDetailRepository extends VehicleDetailRepository {
@@ -118,11 +138,19 @@ void main() {
         database,
         repository: _StubVehicleDetailRepository(snapshot),
       );
+      final alertsBloc = AlertsBloc(
+        database,
+        repository: _StubAlertsRepository(),
+      );
+      await alertsBloc.refresh();
 
       await tester.pumpWidget(
         MaterialApp(
-          home: BlocProvider.value(
-            value: cubit,
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider.value(value: cubit),
+              BlocProvider.value(value: alertsBloc),
+            ],
             child: const VehicleDetailPage(vehicleId: 'VH-001'),
           ),
         ),
@@ -158,7 +186,12 @@ void main() {
       expect(find.text('55.0%'), findsOneWidget);
       expect(find.text('42.0%'), findsOneWidget);
 
+      await tester.tap(find.byTooltip('Open alerts'));
+      await tester.pumpAndSettle();
+      expect(find.text('No active alerts.'), findsOneWidget);
+
       await cubit.close();
+      await alertsBloc.close();
     },
   );
 }

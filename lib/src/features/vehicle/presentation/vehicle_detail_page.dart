@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../app.dart';
 import '../models/vehicle_detail_models.dart';
 import '../cubit/vehicle_detail_cubit.dart';
 
@@ -31,6 +32,15 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
       appBar: AppBar(
         title: const Text('Vehicle Detail'),
         actions: [
+          IconButton(
+            onPressed: () {
+              final shellTabs = context.read<ShellTabController>();
+              shellTabs.showAlerts();
+              Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.warning_amber_outlined),
+            tooltip: 'Open alerts',
+          ),
           IconButton(
             onPressed: () {
               context.read<VehicleDetailCubit>().refresh();
