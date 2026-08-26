@@ -394,6 +394,44 @@ via SOC.
   - **Impact:** generator defaults stay small and deterministic for fast local
     verification.
 
+  ---
+
+  ## 12. Feature C alert lifecycle semantics (Phase 5)
+
+  **Question:** The original requirement for alerts/dismissal/undo has strict
+  semantics (freshness-gated thresholds, one escalating SOC alert, 5-second
+  undo, self-heal independent of dismissal). What are the exact persistence and
+  relaunch rules before implementation starts?
+
+  **Decision:**
+  - **Identity keys (idempotent):** one `battery_soc` alert entity per vehicle,
+    one `battery_temp` alert entity per vehicle.
+  - **SOC is one escalating alert, not two:**
+    - fresh `soc < 20` and `>= 10` => `WARNING`
+    - fresh `soc < 10` => `CRITICAL`
+    - fresh `soc` back to `10..19` => de-escalate to `WARNING`
+    - fresh `soc >= 20` => resolve/clear
+  - **Temp threshold:** fresh `battery_temp > 45` => `CRITICAL`.
+  - **Freshness gate:** threshold evaluation applies only to fresh readings,
+    reusing section 2 staleness thresholds.
+  - **Dismiss reason order (exact):**
+    1. `I am on it`
+    2. `Wrong alert`
+    3. `Something else…`
+  - **Undo model:** dismissal removes alert immediately and exposes `UNDO` for
+    5 seconds.
+  - **Self-heal model:** condition clear resolves alert independently of
+    dismissal/undo history.
+  - **Relaunch without new readings:** dismissed alerts do not reappear unless
+    there is newer fresh evidence that triggers a new transition.
+  - **Escalation re-notify:** warning dismissed earlier does not suppress a later
+    transition to critical.
+
+  **Implementation naming decision:** use `alert_events` as the canonical
+  append-only audit table name (replacing earlier `alert_log` wording).
+
+  **Status:** LOCKED for Phase 5 start.
+
 ---
 
-*Last updated: Phase 2 start (scope cuts recorded before schema implementation).*
+  *Last updated: Phase 5 start (alert lifecycle semantics locked before implementation).*

@@ -30,8 +30,8 @@ class _FakeConnection {
   Future<void> execute(String sql) async {
     executedSql.add(sql);
     if (sql.contains('INSERT INTO app_meta') && sql.contains("'schema_version'")) {
-      if (sql.contains("'phase2'")) {
-        appMeta['schema_version'] = 'phase2';
+      if (sql.contains("'phase5'")) {
+        appMeta['schema_version'] = 'phase5';
       } else {
         appMeta['schema_version'] = 'phase1';
       }
@@ -113,7 +113,7 @@ class _FakeConnection {
 }
 
 void main() {
-  group('AppDatabase Phase 2 smoke tests', () {
+  group('AppDatabase Phase 5 smoke tests', () {
     late Directory tempDir;
     late String dbPath;
 
@@ -174,14 +174,14 @@ void main() {
       );
 
       expect(rows.length, 1);
-      expect(rows.first.first, 'phase2');
+      expect(rows.first.first, 'phase5');
       expect(openCalls, 1);
       expect(connectCalls, 1);
 
       await database.close();
     });
 
-    test('bootstrap creates phase2 telemetry tables', () async {
+    test('bootstrap creates phase5 telemetry and alert tables', () async {
       final fakeDb = _FakeDatabase();
       final fakeConn = _FakeConnection();
 
@@ -208,6 +208,24 @@ void main() {
       expect(
         fakeConn.executedSql.any(
           (sql) => sql.contains('CREATE TABLE IF NOT EXISTS location_readings'),
+        ),
+        isTrue,
+      );
+      expect(
+        fakeConn.executedSql.any(
+          (sql) => sql.contains('CREATE TABLE IF NOT EXISTS active_alerts'),
+        ),
+        isTrue,
+      );
+      expect(
+        fakeConn.executedSql.any(
+          (sql) => sql.contains('CREATE TABLE IF NOT EXISTS alert_events'),
+        ),
+        isTrue,
+      );
+      expect(
+        fakeConn.executedSql.any(
+          (sql) => sql.contains('CREATE TABLE IF NOT EXISTS dismissal_undo_windows'),
         ),
         isTrue,
       );
@@ -314,6 +332,9 @@ void main() {
       await database.clearAllTablesData();
 
       expect(fakeConn.executedSql.first, 'BEGIN TRANSACTION');
+      expect(fakeConn.executedSql, contains('DELETE FROM alert_events'));
+      expect(fakeConn.executedSql, contains('DELETE FROM dismissal_undo_windows'));
+      expect(fakeConn.executedSql, contains('DELETE FROM active_alerts'));
       expect(fakeConn.executedSql, contains('DELETE FROM signal_readings'));
       expect(fakeConn.executedSql, contains('DELETE FROM location_readings'));
       expect(fakeConn.executedSql, contains('DELETE FROM vehicles'));

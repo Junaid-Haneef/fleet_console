@@ -54,6 +54,19 @@ class FleetHomeRepository {
         ) AS all_events
         GROUP BY vehicle_id
       ),
+      latest_alert AS (
+        SELECT
+          vehicle_id,
+          CASE
+            WHEN MAX(CASE WHEN severity = 'CRITICAL' THEN 1 ELSE 0 END) = 1
+              THEN 'CRITICAL'
+            WHEN MAX(CASE WHEN severity = 'WARNING' THEN 1 ELSE 0 END) = 1
+              THEN 'WARNING'
+            ELSE 'NONE'
+          END AS alert_severity
+        FROM active_alerts
+        GROUP BY vehicle_id
+      ),
       fleet_projection AS (
         SELECT
           v.vehicle_id,
@@ -69,16 +82,11 @@ class FleetHomeRepository {
             WHEN COALESCE(ls.speed, 0) = 0 AND COALESCE(ls.ignition, 0) > 0 THEN 'IDLE'
             ELSE 'STOPPED'
           END AS status,
-          CASE
-            WHEN (ls.soc IS NOT NULL AND ls.soc < 10)
-              OR (ls.battery_temp IS NOT NULL AND ls.battery_temp > 45)
-              THEN 'CRITICAL'
-            WHEN ls.soc IS NOT NULL AND ls.soc < 20 THEN 'WARNING'
-            ELSE 'NONE'
-          END AS alert_severity
+          COALESCE(la.alert_severity, 'NONE') AS alert_severity
         FROM vehicles v
         LEFT JOIN latest_scalar ls ON ls.vehicle_id = v.vehicle_id
         LEFT JOIN latest_ping lp ON lp.vehicle_id = v.vehicle_id
+        LEFT JOIN latest_alert la ON la.vehicle_id = v.vehicle_id
       )
     ''';
   }
