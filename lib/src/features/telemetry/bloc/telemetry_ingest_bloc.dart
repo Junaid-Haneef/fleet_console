@@ -2,7 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/database/app_database.dart';
 import '../data/telemetry_repository.dart';
-import '../domain/telemetry_replay_options.dart';
+import '../models/telemetry_replay_options.dart';
 part 'telemetry_ingest_event.dart';
 part 'telemetry_ingest_state.dart';
 

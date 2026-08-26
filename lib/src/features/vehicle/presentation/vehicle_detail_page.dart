@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../domain/vehicle_detail_models.dart';
-import 'vehicle_detail_cubit.dart';
+import '../models/vehicle_detail_models.dart';
+import '../cubit/vehicle_detail_cubit.dart';
 
 class VehicleDetailPage extends StatefulWidget {
   const VehicleDetailPage({super.key, required this.vehicleId});

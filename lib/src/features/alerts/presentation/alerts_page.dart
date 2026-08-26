@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../models/alert_models.dart';
 import '../bloc/alerts_bloc.dart';
-import '../../fleet/presentation/fleet_home_cubit.dart';
+import '../../fleet/cubit/fleet_home_cubit.dart';
 
 class AlertsPage extends StatelessWidget {
   const AlertsPage({super.key});

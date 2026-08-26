@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fleet_console/src/features/telemetry/data/synthetic_telemetry_generator.dart';
-import 'package:fleet_console/src/features/telemetry/domain/telemetry_packet.dart';
-import 'package:fleet_console/src/features/telemetry/domain/telemetry_replay_options.dart';
+import 'package:fleet_console/src/features/telemetry/models/telemetry_packet.dart';
+import 'package:fleet_console/src/features/telemetry/models/telemetry_replay_options.dart';
 
 void main() {
   group('SyntheticTelemetryGenerator', () {

@@ -1,5 +1,5 @@
 import '../../../core/database/app_database.dart';
-import '../domain/vehicle_detail_models.dart';
+import '../models/vehicle_detail_models.dart';
 
 typedef UtcNow = DateTime Function();
 

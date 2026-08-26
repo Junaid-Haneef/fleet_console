@@ -3,10 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../vehicle/data/vehicle_detail_repository.dart';
-import '../../vehicle/presentation/vehicle_detail_cubit.dart';
+import '../../vehicle/cubit/vehicle_detail_cubit.dart';
 import '../../vehicle/presentation/vehicle_detail_page.dart';
-import '../domain/fleet_home_models.dart';
-import 'fleet_home_cubit.dart';
+import '../models/fleet_home_models.dart';
+import '../cubit/fleet_home_cubit.dart';
 
 class FleetHomePage extends StatelessWidget {
   const FleetHomePage({super.key});

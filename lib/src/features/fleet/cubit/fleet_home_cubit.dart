@@ -2,7 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/database/app_database.dart';
 import '../data/fleet_home_repository.dart';
-import '../domain/fleet_home_models.dart';
+import '../models/fleet_home_models.dart';
 
 part 'fleet_home_state.dart';
 

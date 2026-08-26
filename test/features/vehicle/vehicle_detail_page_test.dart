@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fleet_console/src/core/database/app_database.dart';
 import 'package:fleet_console/src/features/vehicle/data/vehicle_detail_repository.dart';
-import 'package:fleet_console/src/features/vehicle/domain/vehicle_detail_models.dart';
-import 'package:fleet_console/src/features/vehicle/presentation/vehicle_detail_cubit.dart';
+import 'package:fleet_console/src/features/vehicle/models/vehicle_detail_models.dart';
+import 'package:fleet_console/src/features/vehicle/cubit/vehicle_detail_cubit.dart';
 import 'package:fleet_console/src/features/vehicle/presentation/vehicle_detail_page.dart';
 
 class _FakeDatabase {

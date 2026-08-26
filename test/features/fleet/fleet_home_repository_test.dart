@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fleet_console/src/core/database/app_database.dart';
 import 'package:fleet_console/src/features/fleet/data/fleet_home_repository.dart';
-import 'package:fleet_console/src/features/fleet/domain/fleet_home_models.dart';
+import 'package:fleet_console/src/features/fleet/models/fleet_home_models.dart';
 
 class _FakeDatabase {
   Future<void> dispose() async {}

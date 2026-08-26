@@ -2,7 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/database/app_database.dart';
 import '../data/vehicle_detail_repository.dart';
-import '../domain/vehicle_detail_models.dart';
+import '../models/vehicle_detail_models.dart';
 part 'vehicle_detail_state.dart';
 
 class VehicleDetailCubit extends Cubit<VehicleDetailState> {

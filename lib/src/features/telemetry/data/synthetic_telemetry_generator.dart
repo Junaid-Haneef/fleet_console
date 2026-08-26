@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import '../domain/telemetry_packet.dart';
-import '../domain/telemetry_replay_options.dart';
+import '../models/telemetry_packet.dart';
+import '../models/telemetry_replay_options.dart';
 
 typedef UtcNow = DateTime Function();
 

@@ -6,9 +6,9 @@ import 'features/alerts/data/alerts_repository.dart';
 import 'features/alerts/bloc/alerts_bloc.dart';
 import 'features/alerts/presentation/alerts_page.dart';
 import 'features/fleet/data/fleet_home_repository.dart';
-import 'features/fleet/presentation/fleet_home_cubit.dart';
+import 'features/fleet/cubit/fleet_home_cubit.dart';
 import 'features/fleet/presentation/fleet_home_page.dart';
-import 'features/telemetry/application/telemetry_ingest_bloc.dart';
+import 'features/telemetry/bloc/telemetry_ingest_bloc.dart';
 import 'features/vehicle/data/vehicle_detail_repository.dart';
 
 class MainApp extends StatelessWidget {

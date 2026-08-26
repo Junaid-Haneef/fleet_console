@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fleet_console/src/core/database/app_database.dart';
 import 'package:fleet_console/src/features/telemetry/data/telemetry_repository.dart';
-import 'package:fleet_console/src/features/telemetry/domain/telemetry_replay_options.dart';
+import 'package:fleet_console/src/features/telemetry/models/telemetry_replay_options.dart';
 
 class _FakeDatabase {
   bool disposed = false;

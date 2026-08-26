@@ -1,5 +1,5 @@
 import '../../../core/database/app_database.dart';
-import '../domain/telemetry_replay_options.dart';
+import '../models/telemetry_replay_options.dart';
 import 'synthetic_telemetry_generator.dart';
 
 class TelemetryRepository {
