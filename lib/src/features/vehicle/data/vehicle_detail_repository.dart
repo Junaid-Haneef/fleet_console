@@ -26,6 +26,7 @@ class VehicleDetailRepository {
         regNumber: detailsRows.first[1] as String,
         model: detailsRows.first[2] as String,
       ),
+      currentGeofenceName: detailsRows.first[3] as String,
       readings: _mapReadings(detailsRows.first),
       socHistory: _mapSocHistory(socHistoryRows),
     );
@@ -74,11 +75,20 @@ class VehicleDetailRepository {
           SELECT vehicle_id, event_time FROM location_readings WHERE vehicle_id = '$safeVehicleId'
         ) AS all_events
         GROUP BY vehicle_id
+      ),
+      current_geofence AS (
+        SELECT
+          vgs.vehicle_id,
+          COALESCE(gv.name, 'No geofence') AS current_geofence_name
+        FROM vehicle_geofence_state vgs
+        LEFT JOIN geofence_versions gv
+          ON gv.geofence_version_id = vgs.current_geofence_version_id
       )
       SELECT
         v.vehicle_id,
         v.reg_number,
         v.model,
+        COALESCE(cg.current_geofence_name, 'No geofence') AS current_geofence_name,
         ls.soc_value,
         ls.soc_event_time,
         CASE
@@ -154,6 +164,7 @@ class VehicleDetailRepository {
       FROM vehicles v
       LEFT JOIN latest_scalar ls ON ls.vehicle_id = v.vehicle_id
       LEFT JOIN latest_ping lp ON lp.vehicle_id = v.vehicle_id
+      LEFT JOIN current_geofence cg ON cg.vehicle_id = v.vehicle_id
       WHERE v.vehicle_id = '$safeVehicleId'
       LIMIT 1
     ''';
@@ -174,50 +185,50 @@ class VehicleDetailRepository {
       VehicleReadingRow(
         signal: VehicleSignalKey.soc,
         label: 'SOC',
-        value: _asDouble(row[3]),
-        eventTime: _asDateTime(row[4]),
-        ageSeconds: _asInt(row[5]),
-        verdict: _verdictFromSql(row[6] as String),
+        value: _asDouble(row[4]),
+        eventTime: _asDateTime(row[5]),
+        ageSeconds: _asInt(row[6]),
+        verdict: _verdictFromSql(row[7] as String),
       ),
       VehicleReadingRow(
         signal: VehicleSignalKey.rangeKm,
         label: 'Range',
-        value: _asDouble(row[7]),
-        eventTime: _asDateTime(row[8]),
-        ageSeconds: _asInt(row[9]),
-        verdict: _verdictFromSql(row[10] as String),
+        value: _asDouble(row[8]),
+        eventTime: _asDateTime(row[9]),
+        ageSeconds: _asInt(row[10]),
+        verdict: _verdictFromSql(row[11] as String),
       ),
       VehicleReadingRow(
         signal: VehicleSignalKey.speed,
         label: 'Speed',
-        value: _asDouble(row[11]),
-        eventTime: _asDateTime(row[12]),
-        ageSeconds: _asInt(row[13]),
-        verdict: _verdictFromSql(row[14] as String),
+        value: _asDouble(row[12]),
+        eventTime: _asDateTime(row[13]),
+        ageSeconds: _asInt(row[14]),
+        verdict: _verdictFromSql(row[15] as String),
       ),
       VehicleReadingRow(
         signal: VehicleSignalKey.batteryTemp,
         label: 'Battery temp',
-        value: _asDouble(row[15]),
-        eventTime: _asDateTime(row[16]),
-        ageSeconds: _asInt(row[17]),
-        verdict: _verdictFromSql(row[18] as String),
+        value: _asDouble(row[16]),
+        eventTime: _asDateTime(row[17]),
+        ageSeconds: _asInt(row[18]),
+        verdict: _verdictFromSql(row[19] as String),
       ),
       VehicleReadingRow(
         signal: VehicleSignalKey.odometer,
         label: 'Odometer',
-        value: _asDouble(row[19]),
-        eventTime: _asDateTime(row[20]),
-        ageSeconds: _asInt(row[21]),
-        verdict: _verdictFromSql(row[22] as String),
+        value: _asDouble(row[20]),
+        eventTime: _asDateTime(row[21]),
+        ageSeconds: _asInt(row[22]),
+        verdict: _verdictFromSql(row[23] as String),
       ),
       VehicleReadingRow(
         signal: VehicleSignalKey.lastPing,
         label: 'Last ping',
-        value: _asDouble(row[23]),
-        eventTime: _asDateTime(row[24]),
-        ageSeconds: _asInt(row[25]),
-        verdict: _verdictFromSql(row[26] as String),
+        value: _asDouble(row[24]),
+        eventTime: _asDateTime(row[25]),
+        ageSeconds: _asInt(row[26]),
+        verdict: _verdictFromSql(row[27] as String),
       ),
     ];
   }

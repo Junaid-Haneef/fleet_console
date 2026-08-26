@@ -30,8 +30,8 @@ class _FakeConnection {
   Future<void> execute(String sql) async {
     executedSql.add(sql);
     if (sql.contains('INSERT INTO app_meta') && sql.contains("'schema_version'")) {
-      if (sql.contains("'phase5'")) {
-        appMeta['schema_version'] = 'phase5';
+      if (sql.contains("'phase6'")) {
+        appMeta['schema_version'] = 'phase6';
       } else {
         appMeta['schema_version'] = 'phase1';
       }
@@ -68,6 +68,27 @@ class _FakeConnection {
         [
           'main',
           'fleet_console',
+          'idx_geofence_transitions_vehicle_event_time',
+          'geofence_transitions',
+          'CREATE INDEX idx_geofence_transitions_vehicle_event_time ON geofence_transitions(vehicle_id, event_time DESC)',
+        ],
+        [
+          'main',
+          'fleet_console',
+          'idx_geofence_versions_active_effective',
+          'geofence_versions',
+          'CREATE INDEX idx_geofence_versions_active_effective ON geofence_versions(is_active, effective_from DESC)',
+        ],
+        [
+          'main',
+          'fleet_console',
+          'idx_geofence_versions_geofence_effective',
+          'geofence_versions',
+          'CREATE INDEX idx_geofence_versions_geofence_effective ON geofence_versions(geofence_id, effective_from DESC)',
+        ],
+        [
+          'main',
+          'fleet_console',
           'idx_location_readings_latest',
           'location_readings',
           'CREATE INDEX idx_location_readings_latest ON location_readings(vehicle_id, event_time DESC)',
@@ -78,6 +99,13 @@ class _FakeConnection {
           'idx_signal_readings_latest',
           'signal_readings',
           'CREATE INDEX idx_signal_readings_latest ON signal_readings(vehicle_id, signal_name, event_time DESC)',
+        ],
+        [
+          'main',
+          'fleet_console',
+          'idx_vehicle_geofence_state_current',
+          'vehicle_geofence_state',
+          'CREATE INDEX idx_vehicle_geofence_state_current ON vehicle_geofence_state(current_geofence_id, source_event_time DESC)',
         ],
       ]);
     }
@@ -174,14 +202,14 @@ void main() {
       );
 
       expect(rows.length, 1);
-      expect(rows.first.first, 'phase5');
+      expect(rows.first.first, 'phase6');
       expect(openCalls, 1);
       expect(connectCalls, 1);
 
       await database.close();
     });
 
-    test('bootstrap creates phase5 telemetry and alert tables', () async {
+    test('bootstrap creates phase6 geofence, telemetry, and alert tables', () async {
       final fakeDb = _FakeDatabase();
       final fakeConn = _FakeConnection();
 
@@ -193,6 +221,30 @@ void main() {
 
       await database.initialize();
 
+      expect(
+        fakeConn.executedSql.any(
+          (sql) => sql.contains('CREATE TABLE IF NOT EXISTS geofences'),
+        ),
+        isTrue,
+      );
+      expect(
+        fakeConn.executedSql.any(
+          (sql) => sql.contains('CREATE TABLE IF NOT EXISTS geofence_versions'),
+        ),
+        isTrue,
+      );
+      expect(
+        fakeConn.executedSql.any(
+          (sql) => sql.contains('CREATE TABLE IF NOT EXISTS geofence_transitions'),
+        ),
+        isTrue,
+      );
+      expect(
+        fakeConn.executedSql.any(
+          (sql) => sql.contains('CREATE TABLE IF NOT EXISTS vehicle_geofence_state'),
+        ),
+        isTrue,
+      );
       expect(
         fakeConn.executedSql.any(
           (sql) => sql.contains('CREATE TABLE IF NOT EXISTS vehicles'),
@@ -229,6 +281,40 @@ void main() {
         ),
         isTrue,
       );
+
+      await database.close();
+    });
+
+    test('bootstrap seeds default geofences idempotently', () async {
+      final fakeDb = _FakeDatabase();
+      final fakeConn = _FakeConnection();
+
+      final database = AppDatabase(
+        databasePathResolver: () async => dbPath,
+        duckDbOpen: (_) async => fakeDb,
+        duckDbConnect: (_) async => fakeConn,
+      );
+
+      await database.initialize();
+
+      final geofenceSeedStatements = fakeConn.executedSql
+          .where((sql) => sql.contains('INSERT INTO geofences'));
+      final versionSeedStatements = fakeConn.executedSql
+          .where((sql) => sql.contains('INSERT INTO geofence_versions'));
+
+      expect(geofenceSeedStatements.length, 1);
+      expect(versionSeedStatements.length, 1);
+      expect(geofenceSeedStatements.single, contains('gf_depot_north'));
+      expect(geofenceSeedStatements.single, contains('gf_charging_hub'));
+      expect(geofenceSeedStatements.single, contains('gf_service_yard'));
+      expect(versionSeedStatements.single, contains('ON CONFLICT (geofence_version_id) DO NOTHING'));
+
+      await database.initialize();
+
+      final repeatedGeofenceSeedStatements = fakeConn.executedSql
+          .where((sql) => sql.contains('INSERT INTO geofences'));
+
+      expect(repeatedGeofenceSeedStatements.length, 1);
 
       await database.close();
     });
@@ -289,7 +375,7 @@ void main() {
       await database.initialize();
 
       final allIndexes = await database.fetchIndexes();
-      expect(allIndexes.length, 2);
+      expect(allIndexes.length, 6);
 
       final signalIndexes = await database.fetchIndexes(tableName: 'signal_readings');
       expect(signalIndexes.length, 1);
@@ -332,6 +418,10 @@ void main() {
       await database.clearAllTablesData();
 
       expect(fakeConn.executedSql.first, 'BEGIN TRANSACTION');
+      expect(fakeConn.executedSql, contains('DELETE FROM geofence_transitions'));
+      expect(fakeConn.executedSql, contains('DELETE FROM vehicle_geofence_state'));
+      expect(fakeConn.executedSql, contains('DELETE FROM geofence_versions'));
+      expect(fakeConn.executedSql, contains('DELETE FROM geofences'));
       expect(fakeConn.executedSql, contains('DELETE FROM alert_events'));
       expect(fakeConn.executedSql, contains('DELETE FROM dismissal_undo_windows'));
       expect(fakeConn.executedSql, contains('DELETE FROM active_alerts'));

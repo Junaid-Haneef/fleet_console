@@ -67,11 +67,20 @@ class FleetHomeRepository {
         FROM active_alerts
         GROUP BY vehicle_id
       ),
+      current_geofence AS (
+        SELECT
+          vgs.vehicle_id,
+          COALESCE(gv.name, 'No geofence') AS current_geofence_name
+        FROM vehicle_geofence_state vgs
+        LEFT JOIN geofence_versions gv
+          ON gv.geofence_version_id = vgs.current_geofence_version_id
+      ),
       fleet_projection AS (
         SELECT
           v.vehicle_id,
           v.reg_number,
           v.model,
+          COALESCE(cg.current_geofence_name, 'No geofence') AS current_geofence_name,
           ls.soc,
           ls.range_km,
           CASE
@@ -87,6 +96,7 @@ class FleetHomeRepository {
         LEFT JOIN latest_scalar ls ON ls.vehicle_id = v.vehicle_id
         LEFT JOIN latest_ping lp ON lp.vehicle_id = v.vehicle_id
         LEFT JOIN latest_alert la ON la.vehicle_id = v.vehicle_id
+        LEFT JOIN current_geofence cg ON cg.vehicle_id = v.vehicle_id
       )
     ''';
   }
@@ -98,6 +108,7 @@ class FleetHomeRepository {
         vehicle_id,
         reg_number,
         model,
+        current_geofence_name,
         soc,
         range_km,
         status,
@@ -126,10 +137,11 @@ class FleetHomeRepository {
         vehicleId: row[0] as String,
         regNumber: row[1] as String,
         model: row[2] as String,
-        soc: _asDouble(row[3]),
-        rangeKm: _asDouble(row[4]),
-        status: _statusFromSql(row[5] as String),
-        alertSeverity: _alertFromSql(row[6] as String),
+        currentGeofenceName: row[3] as String,
+        soc: _asDouble(row[4]),
+        rangeKm: _asDouble(row[5]),
+        status: _statusFromSql(row[6] as String),
+        alertSeverity: _alertFromSql(row[7] as String),
       );
     }).toList(growable: false);
   }

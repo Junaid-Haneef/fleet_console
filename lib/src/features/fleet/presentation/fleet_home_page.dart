@@ -147,6 +147,8 @@ class _FleetVehicleTile extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(row.model),
+              const SizedBox(height: 4),
+              Text('Geofence: ${row.currentGeofenceName}'),
               const SizedBox(height: 8),
               Row(
                 children: [

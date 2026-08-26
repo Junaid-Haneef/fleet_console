@@ -9,6 +9,24 @@ class SyntheticTelemetryGenerator {
   SyntheticTelemetryGenerator({UtcNow? utcNow})
     : _utcNow = utcNow ?? (() => DateTime.now().toUtc());
 
+  static const List<_GeofenceSeed> _geofenceSeeds = <_GeofenceSeed>[
+    _GeofenceSeed(
+      centerLat: 12.971600,
+      centerLon: 77.594600,
+      radiusM: 180,
+    ),
+    _GeofenceSeed(
+      centerLat: 12.973200,
+      centerLon: 77.599100,
+      radiusM: 120,
+    ),
+    _GeofenceSeed(
+      centerLat: 12.968900,
+      centerLon: 77.587900,
+      radiusM: 150,
+    ),
+  ];
+
   final UtcNow _utcNow;
 
   GeneratedTelemetryBatch generate(TelemetryReplayOptions options) {
@@ -26,6 +44,8 @@ class SyntheticTelemetryGenerator {
     for (var vehicleIndex = 0; vehicleIndex < options.vehicleCount; vehicleIndex++) {
       final vehicleId = _vehicleIdForIndex(vehicleIndex);
       final profile = _profileForVehicle(vehicleIndex);
+      final geofenceSeed = _geofenceSeeds[vehicleIndex % _geofenceSeeds.length];
+      final baseAngle = random.nextDouble() * 2 * pi;
 
       final latestEventTime = nowUtc.subtract(Duration(minutes: profile.latestPacketAgeMinutes));
       final seriesStart = latestEventTime.subtract(
@@ -51,8 +71,18 @@ class SyntheticTelemetryGenerator {
             ? profile.latestBatteryTemp
             : (30 + random.nextDouble() * 12).clamp(22, 52).toDouble();
         final odometer = 12000 + vehicleIndex * 130 + step * 0.8;
-        final lat = 12.95 + vehicleIndex * 0.004 + random.nextDouble() * 0.001;
-        final lon = 77.56 + vehicleIndex * 0.004 + random.nextDouble() * 0.001;
+
+        // Keep routes near seeded geofence centers so transition processing can
+        // confirm current membership during replay.
+        final angle = baseAngle + (step * 0.35);
+        final insideBias = (vehicleIndex % 10 == 0 && step % 6 == 0) ? 1.45 : 0.45;
+        final radialMeters =
+          geofenceSeed.radiusM * insideBias + random.nextDouble() * geofenceSeed.radiusM * 0.15;
+        final latMeters = radialMeters * cos(angle);
+        final lonMeters = radialMeters * sin(angle);
+        final lat = geofenceSeed.centerLat + (latMeters / 111111.0);
+        final lon = geofenceSeed.centerLon +
+          (lonMeters / (111111.0 * cos(geofenceSeed.centerLat * pi / 180.0)));
         final accuracy = (6 + random.nextDouble() * 20).clamp(3, 45);
 
         basePackets.add(
@@ -219,4 +249,16 @@ class GeneratedTelemetryBatch {
   final List<TelemetryPacket> packetsByArrival;
   final int droppedPacketCount;
   final int duplicatePacketCount;
+}
+
+class _GeofenceSeed {
+  const _GeofenceSeed({
+    required this.centerLat,
+    required this.centerLon,
+    required this.radiusM,
+  });
+
+  final double centerLat;
+  final double centerLon;
+  final double radiusM;
 }

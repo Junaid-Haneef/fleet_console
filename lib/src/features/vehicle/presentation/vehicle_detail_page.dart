@@ -73,7 +73,10 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                _VehicleHeader(identity: snapshot.identity),
+                _VehicleHeader(
+                  identity: snapshot.identity,
+                  currentGeofenceName: snapshot.currentGeofenceName,
+                ),
                 const SizedBox(height: 12),
                 const Text(
                   'Readings Register',
@@ -98,9 +101,13 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
 }
 
 class _VehicleHeader extends StatelessWidget {
-  const _VehicleHeader({required this.identity});
+  const _VehicleHeader({
+    required this.identity,
+    required this.currentGeofenceName,
+  });
 
   final VehicleIdentity identity;
+  final String currentGeofenceName;
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +120,8 @@ class _VehicleHeader extends StatelessWidget {
             Text(identity.regNumber, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(identity.model),
+            const SizedBox(height: 8),
+            Text('Current geofence: $currentGeofenceName'),
           ],
         ),
       ),

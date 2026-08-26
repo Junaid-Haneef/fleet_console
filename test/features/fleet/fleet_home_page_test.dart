@@ -50,6 +50,7 @@ void main() {
           vehicleId: 'VH-001',
           regNumber: 'KA-01-AB-1001',
           model: 'Model A',
+          currentGeofenceName: 'Depot North',
           soc: 49,
           rangeKm: 110,
           status: FleetVehicleStatus.moving,
@@ -59,6 +60,7 @@ void main() {
           vehicleId: 'VH-002',
           regNumber: 'KA-01-AB-1002',
           model: 'Model B',
+          currentGeofenceName: 'No geofence',
           soc: 9,
           rangeKm: 20,
           status: FleetVehicleStatus.offline,
@@ -95,6 +97,8 @@ void main() {
 
     expect(find.text('KA-01-AB-1001'), findsOneWidget);
     expect(find.text('KA-01-AB-1002'), findsOneWidget);
+    expect(find.text('Geofence: Depot North'), findsOneWidget);
+    expect(find.text('Geofence: No geofence'), findsOneWidget);
     expect(find.text('MOVING'), findsOneWidget);
     expect(find.text('OFFLINE'), findsOneWidget);
     expect(find.text('Critical'), findsOneWidget);
@@ -123,6 +127,7 @@ void main() {
           vehicleId: 'VH-001',
           regNumber: 'KA-01-AB-1001',
           model: 'Model A',
+          currentGeofenceName: 'No geofence',
           soc: 60,
           rangeKm: 150,
           status: FleetVehicleStatus.stopped,

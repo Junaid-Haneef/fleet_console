@@ -58,6 +58,7 @@ void main() {
             vehicleId: 'VH-001',
             regNumber: 'KA-01-AB-1001',
             model: 'Model A',
+            currentGeofenceName: 'Depot North',
             soc: 48,
             rangeKm: 120,
             status: FleetVehicleStatus.moving,

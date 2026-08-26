@@ -37,10 +37,10 @@ class _CapturingConnection {
     }
 
     return _FakeQueryResult([
-      ['VH-001', 'KA-01-AB-1001', 'Model A', 52.0, 130.0, 'MOVING', 'NONE'],
-      ['VH-002', 'KA-01-AB-1002', 'Model B', 8.0, 25.0, 'OFFLINE', 'CRITICAL'],
-      ['VH-003', 'KA-01-AB-1003', 'Model C', 14.0, 40.0, 'IDLE', 'WARNING'],
-      ['VH-004', 'KA-01-AB-1004', 'Model D', null, null, 'STOPPED', 'NONE'],
+      ['VH-001', 'KA-01-AB-1001', 'Model A', 'Depot North', 52.0, 130.0, 'MOVING', 'NONE'],
+      ['VH-002', 'KA-01-AB-1002', 'Model B', 'No geofence', 8.0, 25.0, 'OFFLINE', 'CRITICAL'],
+      ['VH-003', 'KA-01-AB-1003', 'Model C', 'Charging Hub', 14.0, 40.0, 'IDLE', 'WARNING'],
+      ['VH-004', 'KA-01-AB-1004', 'Model D', 'Service Yard', null, null, 'STOPPED', 'NONE'],
     ]);
   }
 
@@ -72,7 +72,9 @@ void main() {
     expect(snapshot.counts.offline, 1);
 
     expect(snapshot.rows.first.status, FleetVehicleStatus.moving);
+    expect(snapshot.rows.first.currentGeofenceName, 'Depot North');
     expect(snapshot.rows[1].status, FleetVehicleStatus.offline);
+    expect(snapshot.rows[1].currentGeofenceName, 'No geofence');
     expect(snapshot.rows[1].alertSeverity, AlertBadgeSeverity.critical);
     expect(snapshot.rows[2].alertSeverity, AlertBadgeSeverity.warning);
 
@@ -81,6 +83,7 @@ void main() {
     expect(rowsSql, contains('ROW_NUMBER() OVER'));
     expect(rowsSql, contains('ORDER BY event_time DESC'));
     expect(rowsSql, contains("UNION ALL"));
+    expect(rowsSql, contains('current_geofence_name'));
     expect(rowsSql, contains("TIMESTAMP '2026-08-25T11:50:00.000Z'"));
 
     await db.close();

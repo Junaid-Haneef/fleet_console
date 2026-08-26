@@ -54,11 +54,13 @@ class SocHistoryPoint {
 class VehicleDetailSnapshot {
   const VehicleDetailSnapshot({
     required this.identity,
+    required this.currentGeofenceName,
     required this.readings,
     required this.socHistory,
   });
 
   final VehicleIdentity identity;
+  final String currentGeofenceName;
   final List<VehicleReadingRow> readings;
   final List<SocHistoryPoint> socHistory;
 }

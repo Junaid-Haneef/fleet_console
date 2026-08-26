@@ -36,6 +36,7 @@ class _CapturingConnection {
         'VH-001',
         'KA-01-AB-1001',
         'Model A',
+        'Charging Hub',
         9.0,
         DateTime.utc(2026, 8, 25, 11, 49, 0),
         660,
@@ -86,6 +87,7 @@ void main() {
 
     expect(snapshot.identity.vehicleId, 'VH-001');
     expect(snapshot.identity.regNumber, 'KA-01-AB-1001');
+    expect(snapshot.currentGeofenceName, 'Charging Hub');
     expect(snapshot.readings, hasLength(6));
 
     final soc = snapshot.readings[0];
@@ -143,6 +145,7 @@ void main() {
     expect(detailsSql, contains('ROW_NUMBER() OVER'));
     expect(detailsSql, contains('ORDER BY event_time DESC'));
     expect(detailsSql, contains('date_diff(\'second\''));
+    expect(detailsSql, contains('current_geofence_name'));
     expect(detailsSql, contains("TIMESTAMP '2026-08-25T12:00:00.000Z'"));
 
     final historySql = conn.queries.last;

@@ -122,6 +122,10 @@ class AppDatabase {
 
     await conn.execute('BEGIN TRANSACTION');
     try {
+      await conn.execute('DELETE FROM geofence_transitions');
+      await conn.execute('DELETE FROM vehicle_geofence_state');
+      await conn.execute('DELETE FROM geofence_versions');
+      await conn.execute('DELETE FROM geofences');
       await conn.execute('DELETE FROM alert_events');
       await conn.execute('DELETE FROM dismissal_undo_windows');
       await conn.execute('DELETE FROM active_alerts');
@@ -214,6 +218,72 @@ class AppDatabase {
     ''');
 
     await conn.execute('''
+      CREATE TABLE IF NOT EXISTS geofences (
+        geofence_id VARCHAR PRIMARY KEY,
+        created_at TIMESTAMP NOT NULL DEFAULT now()
+      )
+    ''');
+
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS geofence_versions (
+        geofence_version_id VARCHAR PRIMARY KEY,
+        geofence_id VARCHAR NOT NULL,
+        name VARCHAR NOT NULL,
+        center_lat DOUBLE NOT NULL,
+        center_lon DOUBLE NOT NULL,
+        radius_m DOUBLE NOT NULL,
+        is_active BOOLEAN NOT NULL,
+        effective_from TIMESTAMP NOT NULL,
+        superseded_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT now()
+      )
+    ''');
+
+    await conn.execute('''
+      CREATE INDEX IF NOT EXISTS idx_geofence_versions_geofence_effective
+      ON geofence_versions (geofence_id, effective_from DESC)
+    ''');
+
+    await conn.execute('''
+      CREATE INDEX IF NOT EXISTS idx_geofence_versions_active_effective
+      ON geofence_versions (is_active, effective_from DESC)
+    ''');
+
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS geofence_transitions (
+        transition_id VARCHAR PRIMARY KEY,
+        vehicle_id VARCHAR NOT NULL,
+        transition_type VARCHAR NOT NULL,
+        geofence_id VARCHAR,
+        geofence_version_id VARCHAR,
+        event_time TIMESTAMP NOT NULL,
+        recorded_at TIMESTAMP NOT NULL DEFAULT now()
+      )
+    ''');
+
+    await conn.execute('''
+      CREATE INDEX IF NOT EXISTS idx_geofence_transitions_vehicle_event_time
+      ON geofence_transitions (vehicle_id, event_time DESC)
+    ''');
+
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS vehicle_geofence_state (
+        vehicle_id VARCHAR PRIMARY KEY,
+        current_geofence_id VARCHAR,
+        current_geofence_version_id VARCHAR,
+        source_event_time TIMESTAMP NOT NULL,
+        updated_at TIMESTAMP NOT NULL
+      )
+    ''');
+
+    await conn.execute('''
+      CREATE INDEX IF NOT EXISTS idx_vehicle_geofence_state_current
+      ON vehicle_geofence_state (current_geofence_id, source_event_time DESC)
+    ''');
+
+    await _seedDefaultGeofences(conn);
+
+    await conn.execute('''
       CREATE TABLE IF NOT EXISTS active_alerts (
         vehicle_id VARCHAR NOT NULL,
         alert_type VARCHAR NOT NULL,
@@ -279,9 +349,73 @@ class AppDatabase {
 
     await conn.execute('''
       INSERT INTO app_meta (key, value)
-      VALUES ('schema_version', 'phase5')
+      VALUES ('schema_version', 'phase6')
       ON CONFLICT (key) DO UPDATE
       SET value = EXCLUDED.value, updated_at = now()
+    ''');
+  }
+
+  Future<void> _seedDefaultGeofences(dynamic conn) async {
+    await conn.execute('''
+      INSERT INTO geofences (geofence_id, created_at)
+      VALUES
+        ('gf_depot_north', TIMESTAMP '2026-01-01T00:00:00Z'),
+        ('gf_charging_hub', TIMESTAMP '2026-01-01T00:01:00Z'),
+        ('gf_service_yard', TIMESTAMP '2026-01-01T00:02:00Z')
+      ON CONFLICT (geofence_id) DO NOTHING
+    ''');
+
+    await conn.execute('''
+      INSERT INTO geofence_versions (
+        geofence_version_id,
+        geofence_id,
+        name,
+        center_lat,
+        center_lon,
+        radius_m,
+        is_active,
+        effective_from,
+        superseded_at,
+        created_at
+      )
+      VALUES
+        (
+          'gfv_depot_north_v1',
+          'gf_depot_north',
+          'Depot North',
+          12.971600,
+          77.594600,
+          180.0,
+          TRUE,
+          TIMESTAMP '2026-01-01T00:00:00Z',
+          NULL,
+          TIMESTAMP '2026-01-01T00:00:00Z'
+        ),
+        (
+          'gfv_charging_hub_v1',
+          'gf_charging_hub',
+          'Charging Hub',
+          12.973200,
+          77.599100,
+          120.0,
+          TRUE,
+          TIMESTAMP '2026-01-01T00:01:00Z',
+          NULL,
+          TIMESTAMP '2026-01-01T00:01:00Z'
+        ),
+        (
+          'gfv_service_yard_v1',
+          'gf_service_yard',
+          'Service Yard',
+          12.968900,
+          77.587900,
+          150.0,
+          TRUE,
+          TIMESTAMP '2026-01-01T00:02:00Z',
+          NULL,
+          TIMESTAMP '2026-01-01T00:02:00Z'
+        )
+      ON CONFLICT (geofence_version_id) DO NOTHING
     ''');
   }
 

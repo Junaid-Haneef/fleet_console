@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
+import 'package:fleet_console/src/app.dart';
 import 'package:fleet_console/src/core/database/app_database.dart';
 import 'package:fleet_console/src/features/alerts/bloc/alerts_bloc.dart';
 import 'package:fleet_console/src/features/alerts/data/alerts_repository.dart';
@@ -72,6 +74,7 @@ void main() {
           regNumber: 'KA-01-AB-1001',
           model: 'Model A',
         ),
+        currentGeofenceName: 'Charging Hub',
         readings: [
           VehicleReadingRow(
             signal: VehicleSignalKey.soc,
@@ -142,26 +145,35 @@ void main() {
         database,
         repository: _StubAlertsRepository(),
       );
+      final shellTabController = ShellTabController();
       await alertsBloc.refresh();
 
       await tester.pumpWidget(
         MaterialApp(
-          home: MultiBlocProvider(
-            providers: [
-              BlocProvider.value(value: cubit),
-              BlocProvider.value(value: alertsBloc),
-            ],
-            child: const VehicleDetailPage(vehicleId: 'VH-001'),
+          home: ListenableProvider<ShellTabController>.value(
+            value: shellTabController,
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider.value(value: cubit),
+                BlocProvider.value(value: alertsBloc),
+              ],
+              child: const VehicleDetailPage(vehicleId: 'VH-001'),
+            ),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
       expect(find.text('Readings Register'), findsOneWidget);
+      expect(find.text('Current geofence: Charging Hub'), findsOneWidget);
       expect(find.byKey(const ValueKey('reading-row-soc')), findsOneWidget);
       expect(find.byKey(const ValueKey('reading-row-range')), findsOneWidget);
       expect(find.byKey(const ValueKey('reading-row-speed')), findsOneWidget);
       expect(find.byKey(const ValueKey('reading-row-battery_temp')), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('reading-row-odometer')),
+        200,
+      );
       expect(find.byKey(const ValueKey('reading-row-odometer')), findsOneWidget);
 
       await tester.scrollUntilVisible(
@@ -188,7 +200,7 @@ void main() {
 
       await tester.tap(find.byTooltip('Open alerts'));
       await tester.pumpAndSettle();
-      expect(find.text('No active alerts.'), findsOneWidget);
+      expect(shellTabController.value, 1);
 
       await cubit.close();
       await alertsBloc.close();

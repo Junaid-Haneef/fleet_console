@@ -46,6 +46,7 @@ VehicleDetailSnapshot _snapshotFixture() {
       regNumber: 'KA-01-AB-1001',
       model: 'Model A',
     ),
+    currentGeofenceName: 'No geofence',
     readings: const [
       VehicleReadingRow(
         signal: VehicleSignalKey.soc,

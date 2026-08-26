@@ -129,5 +129,32 @@ void main() {
       expect(statuses, containsAll(<String>['MOVING', 'IDLE', 'STOPPED', 'OFFLINE']));
       expect(severities, containsAll(<String>['WARNING', 'CRITICAL']));
     });
+
+    test('generates location points near seeded geofence region', () {
+      final generator = SyntheticTelemetryGenerator(
+        utcNow: () => DateTime.utc(2026, 8, 25, 12, 0),
+      );
+      const options = TelemetryReplayOptions(
+        seed: 31,
+        vehicleCount: 12,
+        packetsPerVehicle: 10,
+        duplicateRate: 0,
+        lateRate: 0,
+        missingRate: 0,
+      );
+
+      final batch = generator.generate(options);
+      final withLocation = batch.packetsByArrival
+          .where((packet) => packet.location != null)
+          .toList(growable: false);
+
+      expect(withLocation, isNotEmpty);
+
+      for (final packet in withLocation) {
+        final location = packet.location!;
+        expect(location.lat, inInclusiveRange(12.966, 12.976));
+        expect(location.lon, inInclusiveRange(77.585, 77.602));
+      }
+    });
   });
 }

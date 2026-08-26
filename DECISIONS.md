@@ -46,6 +46,14 @@ Default: first-inserted value wins, conflicting duplicates are logged to a
 `rejected_readings` table rather than silently dropped, so nothing vanishes
 without a trace.
 
+**Geofence-specific application of the same rule:** GPS/location rows use the
+natural key `(vehicle_id, event_timestamp)` in `location_readings`, because a
+vehicle can only occupy one event-time GPS fix in the local-first store. If a
+later packet re-sends that same key with different lat/lon/accuracy values,
+the already-stored row remains the source of truth and the later one is
+ignored. This keeps geofence assignment deterministic across replay: the
+current geofence depends only on event-time keys, not arrival order.
+
 **Alternatives considered:** last-write-wins by ingestion time — rejected,
 because it makes the stored result depend on arrival order, which is exactly
 the non-determinism the flaky-link scenario is designed to expose.
@@ -174,7 +182,9 @@ geofence edits."
 - **Missing intervals (gap in data, e.g. basement parking):** a gap is not
   itself a transition. When data resumes, the confirmation window simply
   starts fresh from the first post-gap reading; no transition is inferred
-  purely from a data gap.
+  purely from a data gap. In implementation, any trusted-reading gap longer
+  than the 60-second confirmation window resets the pending confirmation
+  streak before evaluating the next reading.
 
 - **Geofence edits (radius/center changed, or deactivated):** edits apply
   **forward-only**. Changing a geofence's radius or center does not

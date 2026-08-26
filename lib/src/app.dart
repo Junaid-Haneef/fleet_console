@@ -9,6 +9,10 @@ import 'features/alerts/presentation/alerts_page.dart';
 import 'features/fleet/data/fleet_home_repository.dart';
 import 'features/fleet/cubit/fleet_home_cubit.dart';
 import 'features/fleet/presentation/fleet_home_page.dart';
+import 'features/geofences/cubit/geofences_cubit.dart';
+import 'features/geofences/data/geofence_transition_processor.dart';
+import 'features/geofences/data/geofences_repository.dart';
+import 'features/geofences/presentation/geofences_page.dart';
 import 'features/telemetry/bloc/telemetry_ingest_bloc.dart';
 import 'features/vehicle/data/vehicle_detail_repository.dart';
 
@@ -17,6 +21,7 @@ class ShellTabController extends ValueNotifier<int> {
 
   void showFleet() => value = 0;
   void showAlerts() => value = 1;
+  void showGeofences() => value = 2;
 }
 
 class MainApp extends StatelessWidget {
@@ -29,6 +34,8 @@ class MainApp extends StatelessWidget {
     final fleetRepository = FleetHomeRepository(database);
     final vehicleDetailRepository = VehicleDetailRepository(database);
     final alertsRepository = AlertsRepository(database);
+    final geofencesRepository = GeofencesRepository(database);
+    final geofenceTransitionProcessor = GeofenceTransitionProcessor(database);
     final shellTabController = ShellTabController();
 
     return MultiRepositoryProvider(
@@ -39,6 +46,10 @@ class MainApp extends StatelessWidget {
           value: vehicleDetailRepository,
         ),
         RepositoryProvider<AlertsRepository>.value(value: alertsRepository),
+        RepositoryProvider<GeofencesRepository>.value(value: geofencesRepository),
+        RepositoryProvider<GeofenceTransitionProcessor>.value(
+          value: geofenceTransitionProcessor,
+        ),
         ListenableProvider<ShellTabController>.value(value: shellTabController),
       ],
       child: MultiBlocProvider(
@@ -50,6 +61,12 @@ class MainApp extends StatelessWidget {
           BlocProvider<AlertsBloc>(
             create: (_) => AlertsBloc(database, repository: alertsRepository)..refresh(),
           ),
+          BlocProvider<GeofencesCubit>(
+            create: (_) => GeofencesCubit(
+              repository: geofencesRepository,
+              transitionProcessor: geofenceTransitionProcessor,
+            )..refresh(),
+          ),
           BlocProvider<TelemetryIngestBloc>(
             create: (_) => TelemetryIngestBloc(database),
           ),
@@ -59,6 +76,7 @@ class MainApp extends StatelessWidget {
           home: _MainShell(
             database: database,
             alertsRepository: alertsRepository,
+            geofenceTransitionProcessor: geofenceTransitionProcessor,
             shellTabController: shellTabController,
           ),
         ),
@@ -71,11 +89,13 @@ class _MainShell extends StatefulWidget {
   const _MainShell({
     required this.database,
     required this.alertsRepository,
+    required this.geofenceTransitionProcessor,
     required this.shellTabController,
   });
 
   final AppDatabase database;
   final AlertsRepository alertsRepository;
+  final GeofenceTransitionProcessor geofenceTransitionProcessor;
   final ShellTabController shellTabController;
 
   @override
@@ -92,14 +112,17 @@ class _MainShellState extends State<_MainShell> {
       listener: (context, _) async {
         final fleetCubit = context.read<FleetHomeCubit>();
         final alertsBloc = context.read<AlertsBloc>();
+        final geofencesCubit = context.read<GeofencesCubit>();
 
+        await widget.geofenceTransitionProcessor.recomputeConfirmedTransitions();
         await widget.alertsRepository.recomputeActiveAlertsFromLatestReadings();
         await fleetCubit.refresh();
         await alertsBloc.refresh();
+        await geofencesCubit.refresh();
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Fleet Console - Phase 5'),
+          title: const Text('Fleet Console - Phase 6'),
           actions: [
             BlocBuilder<TelemetryIngestBloc, TelemetryIngestState>(
               builder: (context, ingestState) {
@@ -147,6 +170,7 @@ class _MainShellState extends State<_MainShell> {
                   ],
                 ),
                 const AlertsPage(),
+                const GeofencesPage(),
               ],
             );
           },
@@ -172,6 +196,11 @@ class _MainShellState extends State<_MainShell> {
                       icon: _AlertTabIcon(count: activeCount),
                       activeIcon: _AlertTabIcon(count: activeCount, active: true),
                       label: 'Alert',
+                    ),
+                    const BottomNavigationBarItem(
+                      icon: Icon(Icons.location_on_outlined),
+                      activeIcon: Icon(Icons.location_on),
+                      label: 'Geofences',
                     ),
                   ],
                 );

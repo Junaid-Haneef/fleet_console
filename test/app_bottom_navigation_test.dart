@@ -27,7 +27,34 @@ class _FakeConnection {
 
     if (sql.contains('FROM fleet_projection') && sql.contains('ORDER BY reg_number ASC')) {
       return _FakeQueryResult([
-        ['VH-001', 'KA-01-AB-1001', 'Model A', 52.0, 140.0, 'MOVING', 'NONE'],
+        ['VH-001', 'KA-01-AB-1001', 'Model A', 'No geofence', 52.0, 140.0, 'MOVING', 'NONE'],
+      ]);
+    }
+
+    if (sql.contains('FROM ranked_versions') && sql.contains('is_active = TRUE')) {
+      return _FakeQueryResult([
+        [
+          'gf_depot_north',
+          'gfv_depot_north_v1',
+          'Depot North',
+          12.9716,
+          77.5946,
+          180.0,
+          true,
+          DateTime.utc(2026, 1, 1),
+          DateTime.utc(2026, 1, 1),
+        ],
+      ]);
+    }
+
+    if (sql.contains('WHERE rn = 1 AND is_active = FALSE')) {
+      return _FakeQueryResult([]);
+    }
+
+    if (sql.contains('FROM active_counts')) {
+      return _FakeQueryResult([
+        ['gf_depot_north', 'Depot North', 1, false],
+        [null, 'No geofence', 0, true],
       ]);
     }
 
@@ -70,6 +97,7 @@ void main() {
 
     expect(find.text('Fleet'), findsOneWidget);
     expect(find.text('Alert'), findsOneWidget);
+    expect(find.text('Geofences'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
 
     await tester.tap(find.text('Alert'));
@@ -77,5 +105,11 @@ void main() {
 
     expect(find.text('Battery SOC alert'), findsOneWidget);
     expect(find.text('Warning'), findsOneWidget);
+
+    await tester.tap(find.text('Geofences'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Live Vehicle Counts'), findsOneWidget);
+    expect(find.text('Depot North'), findsWidgets);
   });
 }

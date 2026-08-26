@@ -9,6 +9,7 @@ class FleetVehicleRow {
     required this.vehicleId,
     required this.regNumber,
     required this.model,
+    required this.currentGeofenceName,
     required this.soc,
     required this.rangeKm,
     required this.status,
@@ -18,6 +19,7 @@ class FleetVehicleRow {
   final String vehicleId;
   final String regNumber;
   final String model;
+  final String currentGeofenceName;
   final double? soc;
   final double? rangeKm;
   final FleetVehicleStatus status;
