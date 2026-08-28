@@ -24,6 +24,27 @@ class _CapturingConnection {
   Future<_FakeQueryResult> query(String sql) async {
     queries.add(sql);
 
+    if (sql.contains('FROM trips t')) {
+      return _FakeQueryResult([
+        [
+          'VH-001|exit-1',
+          'COMPLETED',
+          'Depot North',
+          'Charging Hub',
+          DateTime.utc(2026, 8, 25, 9, 0, 0),
+          DateTime.utc(2026, 8, 25, 9, 45, 0),
+        ],
+        [
+          'VH-001|exit-2',
+          'IN_PROGRESS',
+          'Charging Hub',
+          null,
+          DateTime.utc(2026, 8, 25, 10, 15, 0),
+          null,
+        ],
+      ]);
+    }
+
     if (sql.contains('SELECT event_time, value')) {
       return _FakeQueryResult([
         [DateTime.utc(2026, 8, 25, 11, 0, 0), 55.0],
@@ -120,6 +141,13 @@ void main() {
     expect(snapshot.socHistory.first.soc, 55.0);
     expect(snapshot.socHistory.last.soc, 42.0);
 
+    expect(snapshot.recentTrips, hasLength(2));
+    expect(snapshot.recentTrips[0].status, VehicleTripStatus.completed);
+    expect(snapshot.recentTrips[0].originGeofenceName, 'Depot North');
+    expect(snapshot.recentTrips[0].destinationGeofenceName, 'Charging Hub');
+    expect(snapshot.recentTrips[1].status, VehicleTripStatus.inProgress);
+    expect(snapshot.recentTrips[1].destinationGeofenceName, isNull);
+
     await db.close();
   });
 
@@ -139,7 +167,7 @@ void main() {
 
     await repository.fetchSnapshot('VH-001');
 
-    expect(conn.queries, hasLength(2));
+    expect(conn.queries, hasLength(3));
 
     final detailsSql = conn.queries.first;
     expect(detailsSql, contains('ROW_NUMBER() OVER'));
@@ -148,9 +176,14 @@ void main() {
     expect(detailsSql, contains('current_geofence_name'));
     expect(detailsSql, contains("TIMESTAMP '2026-08-25T12:00:00.000Z'"));
 
-    final historySql = conn.queries.last;
+    final historySql = conn.queries[1];
     expect(historySql, contains("signal_name = 'soc'"));
     expect(historySql, contains('ORDER BY event_time ASC'));
+
+    final tripsSql = conn.queries[2];
+    expect(tripsSql, contains('FROM trips t'));
+    expect(tripsSql, contains('ORDER BY t.start_event_time DESC'));
+    expect(tripsSql, contains('LIMIT 5'));
 
     await db.close();
   });

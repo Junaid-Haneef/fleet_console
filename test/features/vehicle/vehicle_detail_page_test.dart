@@ -135,6 +135,24 @@ void main() {
             soc: 42,
           ),
         ],
+        recentTrips: [
+          VehicleTripRow(
+            tripId: 'VH-001|exit-1',
+            status: VehicleTripStatus.completed,
+            originGeofenceName: 'Depot North',
+            destinationGeofenceName: 'Charging Hub',
+            startEventTime: DateTime.utc(2026, 8, 25, 9, 0),
+            endEventTime: DateTime.utc(2026, 8, 25, 9, 45),
+          ),
+          VehicleTripRow(
+            tripId: 'VH-001|exit-2',
+            status: VehicleTripStatus.inProgress,
+            originGeofenceName: 'Charging Hub',
+            destinationGeofenceName: null,
+            startEventTime: DateTime.utc(2026, 8, 25, 10, 15),
+            endEventTime: null,
+          ),
+        ],
       );
 
       final cubit = VehicleDetailCubit(
@@ -173,12 +191,14 @@ void main() {
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('reading-row-odometer')),
         200,
+        scrollable: find.byType(Scrollable).first,
       );
       expect(find.byKey(const ValueKey('reading-row-odometer')), findsOneWidget);
 
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('reading-row-last_ping')),
         200,
+        scrollable: find.byType(Scrollable).first,
       );
       expect(find.byKey(const ValueKey('reading-row-last_ping')), findsOneWidget);
 
@@ -191,12 +211,22 @@ void main() {
       expect(find.byKey(const ValueKey('reading-pill-odometer')), findsNothing);
 
       await tester.scrollUntilVisible(
-        find.text('SOC History (event log)'),
+        find.text('History & Trips'),
         200,
+        scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('SOC History (event log)'), findsOneWidget);
+      expect(find.text('History & Trips'), findsOneWidget);
+      expect(find.text('SOC History'), findsOneWidget);
       expect(find.text('55.0%'), findsOneWidget);
       expect(find.text('42.0%'), findsOneWidget);
+
+      await tester.tap(find.text('Recent Trips'));
+      await tester.pumpAndSettle();
+      expect(find.text('Recent Trips'), findsOneWidget);
+      expect(find.text('Depot North -> Charging Hub'), findsOneWidget);
+      expect(find.text('Charging Hub -> Pending entry'), findsOneWidget);
+      expect(find.text('COMPLETED'), findsOneWidget);
+      expect(find.text('IN PROGRESS'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Open alerts'));
       await tester.pumpAndSettle();

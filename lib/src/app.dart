@@ -68,6 +68,7 @@ class MainApp extends StatelessWidget {
             create: (_) => GeofencesCubit(
               repository: geofencesRepository,
               transitionProcessor: geofenceTransitionProcessor,
+              tripsRepository: tripsRepository,
             )..refresh(),
           ),
           BlocProvider<TelemetryIngestBloc>(
@@ -129,7 +130,7 @@ class _MainShellState extends State<_MainShell> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Fleet Console - Phase 6'),
+           title: const Text('Fleet Console - Phase 7'),
           actions: [
             BlocBuilder<TelemetryIngestBloc, TelemetryIngestState>(
               builder: (context, ingestState) {

@@ -19,6 +19,7 @@ class VehicleDetailRepository {
     }
 
     final socHistoryRows = await _database.query(_socHistorySql(vehicleId));
+    final tripRows = await _database.query(_recentTripsSql(vehicleId));
 
     return VehicleDetailSnapshot(
       identity: VehicleIdentity(
@@ -29,6 +30,7 @@ class VehicleDetailRepository {
       currentGeofenceName: detailsRows.first[3] as String,
       readings: _mapReadings(detailsRows.first),
       socHistory: _mapSocHistory(socHistoryRows),
+      recentTrips: _mapTrips(tripRows),
     );
   }
 
@@ -180,6 +182,30 @@ class VehicleDetailRepository {
     ''';
   }
 
+  String _recentTripsSql(String vehicleId) {
+    final safeVehicleId = _escape(vehicleId);
+    return '''
+      SELECT
+        t.trip_id,
+        t.status,
+        COALESCE(origin_v.name, t.origin_geofence_id, 'Unknown') AS origin_name,
+        CASE
+          WHEN t.destination_geofence_id IS NULL THEN NULL
+          ELSE COALESCE(dest_v.name, t.destination_geofence_id)
+        END AS destination_name,
+        t.start_event_time,
+        t.end_event_time
+      FROM trips t
+      LEFT JOIN geofence_versions origin_v
+        ON origin_v.geofence_version_id = t.origin_geofence_version_id
+      LEFT JOIN geofence_versions dest_v
+        ON dest_v.geofence_version_id = t.destination_geofence_version_id
+      WHERE t.vehicle_id = '$safeVehicleId'
+      ORDER BY t.start_event_time DESC
+      LIMIT 5
+    ''';
+  }
+
   List<VehicleReadingRow> _mapReadings(List<Object?> row) {
     return [
       VehicleReadingRow(
@@ -239,6 +265,21 @@ class VehicleDetailRepository {
           (row) => SocHistoryPoint(
             eventTime: _asDateTime(row[0])!,
             soc: _asDouble(row[1])!,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<VehicleTripRow> _mapTrips(List<List<Object?>> rows) {
+    return rows
+        .map(
+          (row) => VehicleTripRow(
+            tripId: row[0] as String,
+            status: _tripStatusFromSql(row[1] as String),
+            originGeofenceName: row[2] as String,
+            destinationGeofenceName: row[3] as String?,
+            startEventTime: _asDateTime(row[4])!,
+            endEventTime: _asDateTime(row[5]),
           ),
         )
         .toList(growable: false);
@@ -304,6 +345,17 @@ class VehicleDetailRepository {
         return VehicleReadingVerdict.stale;
       default:
         throw StateError('Unknown verdict: $value');
+    }
+  }
+
+  VehicleTripStatus _tripStatusFromSql(String value) {
+    switch (value) {
+      case 'IN_PROGRESS':
+        return VehicleTripStatus.inProgress;
+      case 'COMPLETED':
+        return VehicleTripStatus.completed;
+      default:
+        throw StateError('Unknown trip status: $value');
     }
   }
 

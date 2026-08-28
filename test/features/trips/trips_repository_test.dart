@@ -20,12 +20,14 @@ class _ScriptedConnection {
 
   final List<List<Object?>> transitionRows;
   final List<String> executedSql = [];
+  final List<String> queriedSql = [];
 
   Future<void> execute(String sql) async {
     executedSql.add(sql);
   }
 
   Future<_FakeQueryResult> query(String sql) async {
+    queriedSql.add(sql);
     if (sql.contains('FROM geofence_transitions')) {
       return _FakeQueryResult(transitionRows);
     }
@@ -168,6 +170,119 @@ void main() {
 
       expect(conn.executedSql, contains('DELETE FROM trips'));
       expect(conn.executedSql.last, 'COMMIT');
+
+      await db.close();
+    });
+
+    test('sorts out-of-order transition input deterministically', () async {
+      final conn = _ScriptedConnection([
+        [
+          'VH-004|ENTER|gf_service_yard|2026-08-26T10:20:00.000Z',
+          'VH-004',
+          'ENTER',
+          'gf_service_yard',
+          'gfv_service_yard_v1',
+          '2026-08-26T10:20:00.000Z',
+        ],
+        [
+          'VH-004|EXIT|gf_depot_north|2026-08-26T10:00:00.000Z',
+          'VH-004',
+          'EXIT',
+          'gf_depot_north',
+          'gfv_depot_north_v1',
+          '2026-08-26T10:00:00.000Z',
+        ],
+      ]);
+
+      final db = AppDatabase(
+        databasePathResolver: () async => 'memory://trips-test-sorted',
+        duckDbOpen: (_) async => _FakeDatabase(),
+        duckDbConnect: (_) async => conn,
+      );
+      await db.initialize();
+      conn.executedSql.clear();
+
+      final repository = TripsRepository(db);
+      await repository.recomputeTripsFromConfirmedTransitions();
+
+      final upsert = conn.executedSql.singleWhere(
+        (sql) => sql.contains('INSERT INTO trips'),
+      );
+      expect(upsert, contains("'COMPLETED'"));
+      expect(upsert, contains("TIMESTAMP '2026-08-26T10:00:00.000Z'"));
+      expect(upsert, contains("TIMESTAMP '2026-08-26T10:20:00.000Z'"));
+
+      await db.close();
+    });
+
+    test('captures late-packet revision to earlier entry boundary', () async {
+      final conn = _ScriptedConnection([
+        [
+          'VH-005|EXIT|gf_depot_north|2026-08-26T10:00:00.000Z',
+          'VH-005',
+          'EXIT',
+          'gf_depot_north',
+          'gfv_depot_north_v1',
+          '2026-08-26T10:00:00.000Z',
+        ],
+        [
+          'VH-005|ENTER|gf_service_yard|2026-08-26T10:05:00.000Z',
+          'VH-005',
+          'ENTER',
+          'gf_service_yard',
+          'gfv_service_yard_v1',
+          '2026-08-26T10:05:00.000Z',
+        ],
+        [
+          'VH-005|ENTER|gf_service_yard|2026-08-26T10:10:00.000Z',
+          'VH-005',
+          'ENTER',
+          'gf_service_yard',
+          'gfv_service_yard_v1',
+          '2026-08-26T10:10:00.000Z',
+        ],
+      ]);
+
+      final db = AppDatabase(
+        databasePathResolver: () async => 'memory://trips-test-late-revision',
+        duckDbOpen: (_) async => _FakeDatabase(),
+        duckDbConnect: (_) async => conn,
+      );
+      await db.initialize();
+      conn.executedSql.clear();
+
+      final repository = TripsRepository(db);
+      await repository.recomputeTripsFromConfirmedTransitions();
+
+      final upserts = conn.executedSql
+          .where((sql) => sql.contains('INSERT INTO trips'))
+          .toList(growable: false);
+      expect(upserts, hasLength(1));
+      expect(upserts.single, contains("TIMESTAMP '2026-08-26T10:05:00.000Z'"));
+      expect(upserts.single, isNot(contains("TIMESTAMP '2026-08-26T10:10:00.000Z'")));
+
+      await db.close();
+    });
+
+    test('queries transitions in deterministic event-time order', () async {
+      final conn = _ScriptedConnection(const []);
+
+      final db = AppDatabase(
+        databasePathResolver: () async => 'memory://trips-test-query',
+        duckDbOpen: (_) async => _FakeDatabase(),
+        duckDbConnect: (_) async => conn,
+      );
+      await db.initialize();
+
+      final repository = TripsRepository(db);
+      await repository.recomputeTripsFromConfirmedTransitions();
+
+      expect(conn.queriedSql, hasLength(1));
+      final sql = conn.queriedSql.single;
+      expect(sql, contains('ORDER BY'));
+      expect(sql, contains('event_time ASC'));
+      expect(sql, contains("CASE WHEN transition_type = 'EXIT' THEN 0 ELSE 1 END"));
+      expect(sql, contains('transition_id ASC'));
 
       await db.close();
     });

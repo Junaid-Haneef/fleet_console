@@ -105,7 +105,7 @@ class _FakeConnection {
           'fleet_console',
           'idx_trips_single_active_per_vehicle',
           'trips',
-          "CREATE UNIQUE INDEX idx_trips_single_active_per_vehicle ON trips(vehicle_id) WHERE (status = 'IN_PROGRESS')",
+          'CREATE UNIQUE INDEX idx_trips_single_active_per_vehicle ON trips(active_trip_vehicle_id)',
         ],
         [
           'main',

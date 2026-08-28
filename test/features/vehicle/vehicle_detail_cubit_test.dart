@@ -58,6 +58,7 @@ VehicleDetailSnapshot _snapshotFixture() {
       ),
     ],
     socHistory: const [],
+    recentTrips: const [],
   );
 }
 

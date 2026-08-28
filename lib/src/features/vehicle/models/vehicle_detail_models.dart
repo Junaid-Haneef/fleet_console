@@ -51,16 +51,38 @@ class SocHistoryPoint {
   final double soc;
 }
 
+enum VehicleTripStatus { inProgress, completed }
+
+class VehicleTripRow {
+  const VehicleTripRow({
+    required this.tripId,
+    required this.status,
+    required this.originGeofenceName,
+    required this.destinationGeofenceName,
+    required this.startEventTime,
+    required this.endEventTime,
+  });
+
+  final String tripId;
+  final VehicleTripStatus status;
+  final String originGeofenceName;
+  final String? destinationGeofenceName;
+  final DateTime startEventTime;
+  final DateTime? endEventTime;
+}
+
 class VehicleDetailSnapshot {
   const VehicleDetailSnapshot({
     required this.identity,
     required this.currentGeofenceName,
     required this.readings,
     required this.socHistory,
+    required this.recentTrips,
   });
 
   final VehicleIdentity identity;
   final String currentGeofenceName;
   final List<VehicleReadingRow> readings;
   final List<SocHistoryPoint> socHistory;
+  final List<VehicleTripRow> recentTrips;
 }

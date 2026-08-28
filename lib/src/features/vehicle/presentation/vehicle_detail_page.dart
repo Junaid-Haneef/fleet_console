@@ -85,16 +85,64 @@ class _VehicleDetailPageState extends State<VehicleDetailPage> {
                 const SizedBox(height: 8),
                 ...snapshot.readings.map((reading) => _ReadingCard(reading: reading)),
                 const SizedBox(height: 12),
-                const Text(
-                  'SOC History (event log)',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                _HistoryTripsTabs(
+                  socHistory: snapshot.socHistory,
+                  recentTrips: snapshot.recentTrips,
                 ),
-                const SizedBox(height: 8),
-                _SocHistoryTable(points: snapshot.socHistory),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _HistoryTripsTabs extends StatelessWidget {
+  const _HistoryTripsTabs({
+    required this.socHistory,
+    required this.recentTrips,
+  });
+
+  final List<SocHistoryPoint> socHistory;
+  final List<VehicleTripRow> recentTrips;
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'History & Trips',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              const TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                tabs: [
+                  Tab(text: 'SOC History'),
+                  Tab(text: 'Recent Trips'),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 280,
+                child: TabBarView(
+                  children: [
+                    _SocHistoryTable(points: socHistory),
+                    _TripList(trips: recentTrips),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -293,32 +341,125 @@ class _SocHistoryTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (points.isEmpty) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(12),
-          child: Text('No SOC history in retained event log.'),
-        ),
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: Text('No SOC history in retained event log.'),
       );
     }
 
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columns: const [
+          DataColumn(label: Text('Event time')),
+          DataColumn(label: Text('SOC')),
+        ],
+        rows: points
+            .map(
+              (point) => DataRow(
+                cells: [
+                  DataCell(Text(_formatTimestamp(point.eventTime))),
+                  DataCell(Text('${point.soc.toStringAsFixed(1)}%')),
+                ],
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+
+  String _formatTimestamp(DateTime value) {
+    final utc = value.toUtc();
+    final y = utc.year.toString().padLeft(4, '0');
+    final m = utc.month.toString().padLeft(2, '0');
+    final d = utc.day.toString().padLeft(2, '0');
+    final hh = utc.hour.toString().padLeft(2, '0');
+    final mm = utc.minute.toString().padLeft(2, '0');
+    final ss = utc.second.toString().padLeft(2, '0');
+    return '$y-$m-$d $hh:$mm:$ss UTC';
+  }
+}
+
+class _TripList extends StatelessWidget {
+  const _TripList({required this.trips});
+
+  final List<VehicleTripRow> trips;
+
+  @override
+  Widget build(BuildContext context) {
+    if (trips.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: Text('No trips derived yet from confirmed transitions.'),
+      );
+    }
+
+    return ListView(
+      children: trips
+          .map((trip) => _TripCard(trip: trip))
+          .toList(growable: false),
+    );
+  }
+}
+
+class _TripCard extends StatelessWidget {
+  const _TripCard({required this.trip});
+
+  final VehicleTripRow trip;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusLabel = trip.status == VehicleTripStatus.completed
+        ? 'COMPLETED'
+        : 'IN PROGRESS';
+    final statusColor = trip.status == VehicleTripStatus.completed
+        ? Colors.green
+        : Colors.orange;
+
+    final destination = trip.destinationGeofenceName ?? 'Pending entry';
+
     return Card(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columns: const [
-            DataColumn(label: Text('Event time')),
-            DataColumn(label: Text('SOC')),
-          ],
-          rows: points
-              .map(
-                (point) => DataRow(
-                  cells: [
-                    DataCell(Text(_formatTimestamp(point.eventTime))),
-                    DataCell(Text('${point.soc.toStringAsFixed(1)}%')),
-                  ],
+      key: ValueKey('trip-row-${trip.tripId}'),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${trip.originGeofenceName} -> $destination',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
-              )
-              .toList(growable: false),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.35)),
+                  ),
+                  child: Text(
+                    statusLabel,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('Start: ${_formatTimestamp(trip.startEventTime)}'),
+            Text(
+              trip.endEventTime == null
+                  ? 'End: -'
+                  : 'End: ${_formatTimestamp(trip.endEventTime!)}',
+            ),
+          ],
         ),
       ),
     );

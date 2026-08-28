@@ -216,12 +216,16 @@ duplicate trips, and that a vehicle never ends up with two active trips?
 - A late packet that revises a trip's destination or boundary (e.g. the
   confirmed entry event's timestamp gets corrected) updates the *existing*
   trip row keyed by its origin exit event — it does not create a new trip.
+- Revision tie-break semantics are deterministic and event-time based:
+  - transitions are ordered by `(vehicle_id, event_time, type_rank, transition_id)`
+    where `EXIT` ranks before `ENTER` at the same timestamp,
+  - for each open trip, the **first** subsequent `ENTER` in that order closes
+    the trip,
+  - any later `ENTER` events before the next `EXIT` are ignored for that trip.
 - Returning to the origin geofence completes the trip normally (entry into
   *any* geofence, including the origin, satisfies "next confirmed entry").
 
-**Status:** LOCKED (idempotency key and constraint), OPEN (exact revision
-semantics for destination changes — worth walking through live with a
-concrete late-packet example).
+**Status:** LOCKED.
 
 ---
 
@@ -444,4 +448,26 @@ via SOC.
 
 ---
 
-  *Last updated: Phase 5 start (alert lifecycle semantics locked before implementation).*
+## 13. Phase 7 trip UI scope (no dedicated Trips page)
+
+**Question:** Feature E requires automatic, deterministic trip derivation from
+confirmed geofence transitions, but does it require a separate top-level Trips
+screen/tab?
+
+**Decision:** No dedicated Trips page in Phase 7. Trips are surfaced in vehicle
+detail under a `History & Trips` tabbed section (`SOC History` and
+`Recent Trips`) and read directly from DuckDB trip projections.
+
+**Why:** the assignment explicitly evaluates event-time correctness,
+idempotency, and late-packet revision behavior more than UI breadth. Showing
+trips at vehicle detail level proves persistence and derivation correctness
+without adding non-essential navigation surface area.
+
+**Alternatives considered:** adding a top-level Trips tab now — deferred as
+optional polish after scale measurements (Phase 8) if time permits.
+
+**Status:** LOCKED for Phase 7.
+
+---
+
+  *Last updated: Phase 7 completion pass (trip derivation + UI scope locked).*

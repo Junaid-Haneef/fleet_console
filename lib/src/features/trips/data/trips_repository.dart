@@ -7,7 +7,10 @@ class TripsRepository {
 
   Future<void> recomputeTripsFromConfirmedTransitions() async {
     final rows = await _database.query(_orderedTransitionsSql());
-    final transitions = rows.map(_TransitionRow.fromRow).toList(growable: false);
+    final transitions = rows
+        .map(_TransitionRow.fromRow)
+        .toList(growable: true)
+      ..sort(_compareTransitions);
 
     final derivedTrips = _deriveTrips(transitions);
 
@@ -60,6 +63,29 @@ class TripsRepository {
     return trips;
   }
 
+  int _compareTransitions(_TransitionRow left, _TransitionRow right) {
+    final vehicleOrder = left.vehicleId.compareTo(right.vehicleId);
+    if (vehicleOrder != 0) {
+      return vehicleOrder;
+    }
+
+    final eventOrder = left.eventTime.compareTo(right.eventTime);
+    if (eventOrder != 0) {
+      return eventOrder;
+    }
+
+    // For a same-timestamp boundary change, process EXIT before ENTER so the
+    // next ENTER can complete the newly opened trip deterministically.
+    final leftRank = left.transitionType == 'EXIT' ? 0 : 1;
+    final rightRank = right.transitionType == 'EXIT' ? 0 : 1;
+    final typeOrder = leftRank.compareTo(rightRank);
+    if (typeOrder != 0) {
+      return typeOrder;
+    }
+
+    return left.transitionId.compareTo(right.transitionId);
+  }
+
   String _orderedTransitionsSql() {
     return '''
       SELECT
@@ -83,6 +109,7 @@ class TripsRepository {
       INSERT INTO trips (
         trip_id,
         vehicle_id,
+        active_trip_vehicle_id,
         exit_transition_id,
         origin_geofence_id,
         origin_geofence_version_id,
@@ -97,6 +124,7 @@ class TripsRepository {
       VALUES (
         '${_escape(trip.tripId)}',
         '${_escape(trip.vehicleId)}',
+        ${trip.status == 'IN_PROGRESS' ? "'${_escape(trip.vehicleId)}'" : 'NULL'},
         '${_escape(trip.exitTransitionId)}',
         '${_escape(trip.originGeofenceId)}',
         ${trip.originGeofenceVersionId == null ? 'NULL' : "'${_escape(trip.originGeofenceVersionId!)}'"},
@@ -109,7 +137,8 @@ class TripsRepository {
         TIMESTAMP '${_escape(trip.updatedAt.toUtc().toIso8601String())}'
       )
       ON CONFLICT (trip_id) DO UPDATE
-      SET exit_transition_id = EXCLUDED.exit_transition_id,
+        SET active_trip_vehicle_id = EXCLUDED.active_trip_vehicle_id,
+          exit_transition_id = EXCLUDED.exit_transition_id,
           origin_geofence_id = EXCLUDED.origin_geofence_id,
           origin_geofence_version_id = EXCLUDED.origin_geofence_version_id,
           start_event_time = EXCLUDED.start_event_time,
