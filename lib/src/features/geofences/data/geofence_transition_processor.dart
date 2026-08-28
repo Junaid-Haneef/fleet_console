@@ -207,9 +207,9 @@ class GeofenceTransitionProcessor {
 
   String _insertTransitionSql(_GeofenceTransition transition) {
     final eventTimeIso = transition.eventTime.toUtc().toIso8601String();
-    final geofenceId = transition.geofenceId == null
-        ? 'NONE'
-        : _escape(transition.geofenceId!);
+    // final geofenceId = transition.geofenceId == null
+    //     ? 'NONE'
+    //     : _escape(transition.geofenceId!);
     final geofenceVersionId = transition.geofenceVersionId == null
         ? 'NULL'
         : "'${_escape(transition.geofenceVersionId!)}'";

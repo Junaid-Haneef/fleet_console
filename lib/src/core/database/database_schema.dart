@@ -2,8 +2,9 @@ import 'schema/alerts_schema.dart';
 import 'schema/core_schema.dart';
 import 'schema/geofences_schema.dart';
 import 'schema/telemetry_schema.dart';
+import 'schema/trips_schema.dart';
 
-const String schemaVersion = 'phase6';
+const String schemaVersion = 'phase7';
 
 /// Applies all feature schemas. Every statement is CREATE/ALTER IF NOT
 /// EXISTS, so re-running on an existing database is a no-op.
@@ -12,6 +13,7 @@ Future<void> applyDatabaseSchema(dynamic conn) async {
   await createTelemetrySchema(conn);
   await createGeofencesSchema(conn);
   await createAlertsSchema(conn);
+  await createTripsSchema(conn);
 }
 
 /// Records the current schema version. Called last during bootstrap so the

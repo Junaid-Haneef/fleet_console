@@ -30,8 +30,8 @@ class _FakeConnection {
   Future<void> execute(String sql) async {
     executedSql.add(sql);
     if (sql.contains('INSERT INTO app_meta') && sql.contains("'schema_version'")) {
-      if (sql.contains("'phase6'")) {
-        appMeta['schema_version'] = 'phase6';
+      if (sql.contains("'phase7'")) {
+        appMeta['schema_version'] = 'phase7';
       } else {
         appMeta['schema_version'] = 'phase1';
       }
@@ -103,6 +103,27 @@ class _FakeConnection {
         [
           'main',
           'fleet_console',
+          'idx_trips_single_active_per_vehicle',
+          'trips',
+          "CREATE UNIQUE INDEX idx_trips_single_active_per_vehicle ON trips(vehicle_id) WHERE (status = 'IN_PROGRESS')",
+        ],
+        [
+          'main',
+          'fleet_console',
+          'idx_trips_status_updated',
+          'trips',
+          'CREATE INDEX idx_trips_status_updated ON trips(status, updated_at DESC)',
+        ],
+        [
+          'main',
+          'fleet_console',
+          'idx_trips_vehicle_start',
+          'trips',
+          'CREATE INDEX idx_trips_vehicle_start ON trips(vehicle_id, start_event_time DESC)',
+        ],
+        [
+          'main',
+          'fleet_console',
           'idx_vehicle_geofence_state_current',
           'vehicle_geofence_state',
           'CREATE INDEX idx_vehicle_geofence_state_current ON vehicle_geofence_state(current_geofence_id, source_event_time DESC)',
@@ -141,7 +162,7 @@ class _FakeConnection {
 }
 
 void main() {
-  group('AppDatabase Phase 5 smoke tests', () {
+  group('AppDatabase Phase 7 smoke tests', () {
     late Directory tempDir;
     late String dbPath;
 
@@ -202,14 +223,14 @@ void main() {
       );
 
       expect(rows.length, 1);
-      expect(rows.first.first, 'phase6');
+      expect(rows.first.first, 'phase7');
       expect(openCalls, 1);
       expect(connectCalls, 1);
 
       await database.close();
     });
 
-    test('bootstrap creates phase6 geofence, telemetry, and alert tables', () async {
+    test('bootstrap creates phase7 geofence, telemetry, alert, and trip tables', () async {
       final fakeDb = _FakeDatabase();
       final fakeConn = _FakeConnection();
 
@@ -278,6 +299,12 @@ void main() {
       expect(
         fakeConn.executedSql.any(
           (sql) => sql.contains('CREATE TABLE IF NOT EXISTS dismissal_undo_windows'),
+        ),
+        isTrue,
+      );
+      expect(
+        fakeConn.executedSql.any(
+          (sql) => sql.contains('CREATE TABLE IF NOT EXISTS trips'),
         ),
         isTrue,
       );
@@ -375,7 +402,7 @@ void main() {
       await database.initialize();
 
       final allIndexes = await database.fetchIndexes();
-      expect(allIndexes.length, 6);
+      expect(allIndexes.length, 9);
 
       final signalIndexes = await database.fetchIndexes(tableName: 'signal_readings');
       expect(signalIndexes.length, 1);
@@ -418,6 +445,7 @@ void main() {
       await database.clearAllTablesData();
 
       expect(fakeConn.executedSql.first, 'BEGIN TRANSACTION');
+      expect(fakeConn.executedSql, contains('DELETE FROM trips'));
       expect(fakeConn.executedSql, contains('DELETE FROM geofence_transitions'));
       expect(fakeConn.executedSql, contains('DELETE FROM vehicle_geofence_state'));
       expect(fakeConn.executedSql, contains('DELETE FROM geofence_versions'));

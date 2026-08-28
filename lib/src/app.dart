@@ -14,6 +14,7 @@ import 'features/geofences/data/geofence_transition_processor.dart';
 import 'features/geofences/data/geofences_repository.dart';
 import 'features/geofences/presentation/geofences_page.dart';
 import 'features/telemetry/bloc/telemetry_ingest_bloc.dart';
+import 'features/trips/data/trips_repository.dart';
 import 'features/vehicle/data/vehicle_detail_repository.dart';
 
 class ShellTabController extends ValueNotifier<int> {
@@ -36,6 +37,7 @@ class MainApp extends StatelessWidget {
     final alertsRepository = AlertsRepository(database);
     final geofencesRepository = GeofencesRepository(database);
     final geofenceTransitionProcessor = GeofenceTransitionProcessor(database);
+    final tripsRepository = TripsRepository(database);
     final shellTabController = ShellTabController();
 
     return MultiRepositoryProvider(
@@ -50,6 +52,7 @@ class MainApp extends StatelessWidget {
         RepositoryProvider<GeofenceTransitionProcessor>.value(
           value: geofenceTransitionProcessor,
         ),
+        RepositoryProvider<TripsRepository>.value(value: tripsRepository),
         ListenableProvider<ShellTabController>.value(value: shellTabController),
       ],
       child: MultiBlocProvider(
@@ -77,6 +80,7 @@ class MainApp extends StatelessWidget {
             database: database,
             alertsRepository: alertsRepository,
             geofenceTransitionProcessor: geofenceTransitionProcessor,
+            tripsRepository: tripsRepository,
             shellTabController: shellTabController,
           ),
         ),
@@ -90,12 +94,14 @@ class _MainShell extends StatefulWidget {
     required this.database,
     required this.alertsRepository,
     required this.geofenceTransitionProcessor,
+    required this.tripsRepository,
     required this.shellTabController,
   });
 
   final AppDatabase database;
   final AlertsRepository alertsRepository;
   final GeofenceTransitionProcessor geofenceTransitionProcessor;
+  final TripsRepository tripsRepository;
   final ShellTabController shellTabController;
 
   @override
@@ -115,6 +121,7 @@ class _MainShellState extends State<_MainShell> {
         final geofencesCubit = context.read<GeofencesCubit>();
 
         await widget.geofenceTransitionProcessor.recomputeConfirmedTransitions();
+        await widget.tripsRepository.recomputeTripsFromConfirmedTransitions();
         await widget.alertsRepository.recomputeActiveAlertsFromLatestReadings();
         await fleetCubit.refresh();
         await alertsBloc.refresh();

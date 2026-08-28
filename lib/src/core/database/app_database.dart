@@ -126,6 +126,7 @@ class AppDatabase {
 
     await conn.execute('BEGIN TRANSACTION');
     try {
+      await conn.execute('DELETE FROM trips');
       await conn.execute('DELETE FROM geofence_transitions');
       await conn.execute('DELETE FROM vehicle_geofence_state');
       await conn.execute('DELETE FROM geofence_versions');
