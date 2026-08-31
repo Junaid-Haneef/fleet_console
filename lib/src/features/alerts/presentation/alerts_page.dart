@@ -61,7 +61,12 @@ class AlertsPage extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(alert.model),
                     const SizedBox(height: 8),
-                    Text(alertTypeLabel(alert.type)),
+                    Text(
+                      alertReasonLabel(
+                        type: alert.type,
+                        severity: alert.severity,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Text('Vehicle: ${alert.vehicleId}'),
                     const SizedBox(height: 10),
@@ -84,7 +89,7 @@ class AlertsPage extends StatelessWidget {
 
   Future<void> _onDismissPressed(BuildContext context, ActiveAlertRow alert) async {
     final messenger = ScaffoldMessenger.of(context);
-    final reason = await _showDismissReasonSheet(context);
+    final reason = await _showDismissReasonSheet(context, alert);
     if (reason == null || !context.mounted) {
       return;
     }
@@ -135,7 +140,10 @@ class AlertsPage extends StatelessWidget {
     }
   }
 
-  Future<AlertDismissReason?> _showDismissReasonSheet(BuildContext context) {
+  Future<AlertDismissReason?> _showDismissReasonSheet(
+    BuildContext context,
+    ActiveAlertRow alert,
+  ) {
     final reasons = [
       AlertDismissReason.iAmOnIt,
       AlertDismissReason.wrongAlert,
@@ -154,6 +162,17 @@ class AlertsPage extends StatelessWidget {
                   'Dismiss reason',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
+              ),
+              ListTile(
+                dense: true,
+                title: Text(
+                  alertReasonLabel(
+                    type: alert.type,
+                    severity: alert.severity,
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                subtitle: Text('Vehicle: ${alert.regNumber}'),
               ),
               ...reasons.map(
                 (reason) => ListTile(

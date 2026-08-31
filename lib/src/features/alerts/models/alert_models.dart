@@ -35,6 +35,20 @@ String alertTypeLabel(AlertType type) {
   }
 }
 
+String alertReasonLabel({
+  required AlertType type,
+  required AlertSeverity severity,
+}) {
+  switch (type) {
+    case AlertType.batterySoc:
+      return severity == AlertSeverity.critical
+          ? 'Battery critically low'
+          : 'Low battery';
+    case AlertType.batteryTemp:
+      return 'Battery overheating';
+  }
+}
+
 String alertSeverityLabel(AlertSeverity severity) {
   switch (severity) {
     case AlertSeverity.warning:

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dart_duckdb/dart_duckdb.dart';
 
 import 'database_path.dart';
@@ -39,17 +41,67 @@ class AppDatabase {
     }
 
     final dbPath = await _databasePathResolver();
-    final db = await _duckDbOpen(dbPath);
+    final db = await _openDatabaseWithRecovery(dbPath);
     final conn = await _duckDbConnect(db);
 
-    await applyDatabaseSchema(conn);
-    await seedDefaultGeofences(conn);
-    await stampSchemaVersion(conn);
+    final schemaCurrent = await _isSchemaVersionCurrent(conn);
+    if (!schemaCurrent) {
+      await applyDatabaseSchema(conn);
+      await seedDefaultGeofences(conn);
+      await stampSchemaVersion(conn);
+    }
 
     _databasePath = dbPath;
     _database = db;
     _connection = conn;
     _initialized = true;
+  }
+
+  Future<bool> _isSchemaVersionCurrent(dynamic conn) async {
+    try {
+      final result = await conn.query('''
+        SELECT value
+        FROM app_meta
+        WHERE key = 'schema_version'
+        LIMIT 1
+      ''');
+      final rows = result.fetchAll();
+      if (rows.isEmpty || rows.first.isEmpty) {
+        return false;
+      }
+
+      final value = rows.first.first;
+      return value?.toString() == schemaVersion;
+    } catch (_) {
+      // If metadata tables do not exist yet, run full bootstrap.
+      return false;
+    }
+  }
+
+  Future<dynamic> _openDatabaseWithRecovery(String dbPath) async {
+    try {
+      return await _duckDbOpen(dbPath);
+    } on DuckDBException catch (error) {
+      if (!_isWalAutoloadHomeDirectoryFailure(error.toString())) {
+        rethrow;
+      }
+
+      await _deleteWalIfPresent(dbPath);
+      return _duckDbOpen(dbPath);
+    }
+  }
+
+  bool _isWalAutoloadHomeDirectoryFailure(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('extension autoloading error') &&
+        normalized.contains('home directory');
+  }
+
+  Future<void> _deleteWalIfPresent(String dbPath) async {
+    final walFile = File('$dbPath.wal');
+    if (await walFile.exists()) {
+      await walFile.delete();
+    }
   }
 
   Future<void> close() async {
@@ -147,6 +199,14 @@ class AppDatabase {
       await conn.execute('ROLLBACK');
       rethrow;
     }
+  }
+
+  /// Resets operational data for replay/benchmark runs and reseeds baseline
+  /// geofences so transition and trip features remain usable immediately.
+  Future<void> resetOperationalData() async {
+    final conn = _requireConnection();
+    await clearAllTablesData();
+    await seedDefaultGeofences(conn);
   }
 
   dynamic _requireConnection() {

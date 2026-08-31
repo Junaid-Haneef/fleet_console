@@ -19,15 +19,23 @@ class _FakeConnection {
   Future<void> execute(String sql) async {}
 
   Future<_FakeQueryResult> query(String sql) async {
-    if (sql.contains('COUNT(*) AS all_count')) {
-      return _FakeQueryResult([
-        [1, 1, 0, 0, 0],
-      ]);
-    }
-
     if (sql.contains('FROM fleet_projection') && sql.contains('ORDER BY reg_number ASC')) {
       return _FakeQueryResult([
-        ['VH-001', 'KA-01-AB-1001', 'Model A', 'No geofence', 52.0, 140.0, 'MOVING', 'NONE'],
+        [
+          'VH-001',
+          'KA-01-AB-1001',
+          'Model A',
+          'No geofence',
+          52.0,
+          140.0,
+          'MOVING',
+          'NONE',
+          1,
+          1,
+          0,
+          0,
+          0,
+        ],
       ]);
     }
 
@@ -98,12 +106,13 @@ void main() {
     expect(find.text('Fleet'), findsOneWidget);
     expect(find.text('Alert'), findsOneWidget);
     expect(find.text('Geofences'), findsOneWidget);
-    expect(find.text('1'), findsOneWidget);
-
+    expect(find.text('Scale'), findsOneWidget);
+    expect(find.text('Manual Lab'), findsOneWidget);
     await tester.tap(find.text('Alert'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Battery SOC alert'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Low battery'), findsOneWidget);
     expect(find.text('Warning'), findsOneWidget);
 
     await tester.tap(find.text('Geofences'));

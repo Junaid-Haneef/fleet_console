@@ -13,46 +13,60 @@ class FleetHomeRepository {
   Future<FleetSnapshot> fetchSnapshot() async {
     final cutoffIso = _utcNow().subtract(const Duration(minutes: 10)).toIso8601String();
 
-    final rows = await _database.query(_fleetRowsSql(cutoffIso));
-    final countsRows = await _database.query(_fleetCountsSql(cutoffIso));
+    final rowsWithCounts = await _database.query(_fleetRowsSql(cutoffIso));
 
-    return FleetSnapshot(rows: _mapRows(rows), counts: _mapCounts(countsRows));
+    return FleetSnapshot(
+      rows: _mapRows(rowsWithCounts),
+      counts: _mapCounts(rowsWithCounts),
+    );
   }
 
   String _fleetBaseCte(String cutoffIso) {
     return '''
-      WITH latest_signals AS (
+      WITH latest_scalar AS (
         SELECT
           vehicle_id,
-          signal_name,
-          value,
-          event_time,
-          ROW_NUMBER() OVER (
-            PARTITION BY vehicle_id, signal_name
-            ORDER BY event_time DESC
-          ) AS rn
+          arg_max(value, event_time) FILTER (WHERE signal_name = 'soc') AS soc,
+          arg_max(value, event_time) FILTER (WHERE signal_name = 'range') AS range_km,
+          arg_max(value, event_time) FILTER (WHERE signal_name = 'speed') AS speed,
+          arg_max(value, event_time) FILTER (WHERE signal_name = 'ignition') AS ignition,
+          arg_max(value, event_time) FILTER (WHERE signal_name = 'battery_temp') AS battery_temp
         FROM signal_readings
+        GROUP BY vehicle_id
       ),
-      latest_scalar AS (
+      latest_signal_ping AS (
         SELECT
           vehicle_id,
-          MAX(CASE WHEN signal_name = 'soc' THEN value END) AS soc,
-          MAX(CASE WHEN signal_name = 'range' THEN value END) AS range_km,
-          MAX(CASE WHEN signal_name = 'speed' THEN value END) AS speed,
-          MAX(CASE WHEN signal_name = 'ignition' THEN value END) AS ignition,
-          MAX(CASE WHEN signal_name = 'battery_temp' THEN value END) AS battery_temp
-        FROM latest_signals
-        WHERE rn = 1
+          MAX(event_time) AS latest_signal_event_time
+        FROM signal_readings
+        GROUP BY vehicle_id
+      ),
+      latest_location_ping AS (
+        SELECT
+          vehicle_id,
+          MAX(event_time) AS latest_location_event_time
+        FROM location_readings
         GROUP BY vehicle_id
       ),
       latest_ping AS (
-        SELECT vehicle_id, MAX(event_time) AS last_ping_event_time
-        FROM (
-          SELECT vehicle_id, event_time FROM signal_readings
-          UNION ALL
-          SELECT vehicle_id, event_time FROM location_readings
-        ) AS all_events
-        GROUP BY vehicle_id
+        SELECT
+          v.vehicle_id,
+          GREATEST(
+            COALESCE(sp.latest_signal_event_time, TIMESTAMP '1970-01-01T00:00:00Z'),
+            COALESCE(lp.latest_location_event_time, TIMESTAMP '1970-01-01T00:00:00Z')
+          ) AS last_ping_event_time
+        FROM vehicles v
+        LEFT JOIN latest_signal_ping sp ON sp.vehicle_id = v.vehicle_id
+        LEFT JOIN latest_location_ping lp ON lp.vehicle_id = v.vehicle_id
+      ),
+      latest_ping_normalized AS (
+        SELECT
+          vehicle_id,
+          CASE
+            WHEN last_ping_event_time = TIMESTAMP '1970-01-01T00:00:00Z' THEN NULL
+            ELSE last_ping_event_time
+          END AS last_ping_event_time
+        FROM latest_ping
       ),
       latest_alert AS (
         SELECT
@@ -94,7 +108,7 @@ class FleetHomeRepository {
           COALESCE(la.alert_severity, 'NONE') AS alert_severity
         FROM vehicles v
         LEFT JOIN latest_scalar ls ON ls.vehicle_id = v.vehicle_id
-        LEFT JOIN latest_ping lp ON lp.vehicle_id = v.vehicle_id
+        LEFT JOIN latest_ping_normalized lp ON lp.vehicle_id = v.vehicle_id
         LEFT JOIN latest_alert la ON la.vehicle_id = v.vehicle_id
         LEFT JOIN current_geofence cg ON cg.vehicle_id = v.vehicle_id
       )
@@ -112,22 +126,14 @@ class FleetHomeRepository {
         soc,
         range_km,
         status,
-        alert_severity
+        alert_severity,
+        COUNT(*) OVER () AS all_count,
+        SUM(CASE WHEN status = 'MOVING' THEN 1 ELSE 0 END) OVER () AS moving_count,
+        SUM(CASE WHEN status = 'IDLE' THEN 1 ELSE 0 END) OVER () AS idle_count,
+        SUM(CASE WHEN status = 'STOPPED' THEN 1 ELSE 0 END) OVER () AS stopped_count,
+        SUM(CASE WHEN status = 'OFFLINE' THEN 1 ELSE 0 END) OVER () AS offline_count
       FROM fleet_projection
       ORDER BY reg_number ASC
-    ''';
-  }
-
-  String _fleetCountsSql(String cutoffIso) {
-    return '''
-      ${_fleetBaseCte(cutoffIso)}
-      SELECT
-        COUNT(*) AS all_count,
-        SUM(CASE WHEN status = 'MOVING' THEN 1 ELSE 0 END) AS moving_count,
-        SUM(CASE WHEN status = 'IDLE' THEN 1 ELSE 0 END) AS idle_count,
-        SUM(CASE WHEN status = 'STOPPED' THEN 1 ELSE 0 END) AS stopped_count,
-        SUM(CASE WHEN status = 'OFFLINE' THEN 1 ELSE 0 END) AS offline_count
-      FROM fleet_projection
     ''';
   }
 
@@ -146,18 +152,18 @@ class FleetHomeRepository {
     }).toList(growable: false);
   }
 
-  FleetFilterCounts _mapCounts(List<List<Object?>> rows) {
-    if (rows.isEmpty) {
+  FleetFilterCounts _mapCounts(List<List<Object?>> rowsWithCounts) {
+    if (rowsWithCounts.isEmpty) {
       return const FleetFilterCounts.zero();
     }
 
-    final row = rows.first;
+    final row = rowsWithCounts.first;
     return FleetFilterCounts(
-      all: _asInt(row[0]),
-      moving: _asInt(row[1]),
-      idle: _asInt(row[2]),
-      stopped: _asInt(row[3]),
-      offline: _asInt(row[4]),
+      all: _asInt(row[8]),
+      moving: _asInt(row[9]),
+      idle: _asInt(row[10]),
+      stopped: _asInt(row[11]),
+      offline: _asInt(row[12]),
     );
   }
 

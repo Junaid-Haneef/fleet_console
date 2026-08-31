@@ -470,4 +470,28 @@ optional polish after scale measurements (Phase 8) if time permits.
 
 ---
 
+## 14. Phase 8 scale harness UX (dedicated developer screen)
+
+**Question:** Should the scale exercise rely only on a script/debug action, or
+also expose an in-app control surface for reset + replay configuration while
+measuring behavior?
+
+**Decision:** Add a dedicated developer-facing `Scale Exercise Lab` screen in
+the app shell with:
+- Full operational reset (clear mutable tables, then reseed default geofences).
+- Replay controls (`seed`, `vehicleCount`, `packetsPerVehicle`,
+  `duplicateRate`, `lateRate`, `missingRate`).
+- Presets for:
+  - single-vehicle correctness stress run,
+  - 500 vehicles / ~2M stored signal rows run.
+- Immediate count visibility (`vehicles`, `signal_readings`,
+  `location_readings`) and replay wall-clock duration.
+
+**Why:** this reduces manual command friction during live defense while keeping
+the benchmark deterministic and repeatable on any named device/emulator.
+
+**Status:** LOCKED for Phase 8 implementation start.
+
+---
+
   *Last updated: Phase 7 completion pass (trip derivation + UI scope locked).*

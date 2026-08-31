@@ -24,23 +24,67 @@ class _CapturingConnection {
   Future<_FakeQueryResult> query(String sql) async {
     queries.add(sql);
 
-    if (sql.contains('COUNT(*) AS all_count')) {
-      return _FakeQueryResult([
-        [
-          BigInt.from(4),
-          BigInt.from(1),
-          BigInt.from(1),
-          BigInt.from(1),
-          BigInt.from(1),
-        ],
-      ]);
-    }
-
     return _FakeQueryResult([
-      ['VH-001', 'KA-01-AB-1001', 'Model A', 'Depot North', 52.0, 130.0, 'MOVING', 'NONE'],
-      ['VH-002', 'KA-01-AB-1002', 'Model B', 'No geofence', 8.0, 25.0, 'OFFLINE', 'CRITICAL'],
-      ['VH-003', 'KA-01-AB-1003', 'Model C', 'Charging Hub', 14.0, 40.0, 'IDLE', 'WARNING'],
-      ['VH-004', 'KA-01-AB-1004', 'Model D', 'Service Yard', null, null, 'STOPPED', 'NONE'],
+      [
+        'VH-001',
+        'KA-01-AB-1001',
+        'Model A',
+        'Depot North',
+        52.0,
+        130.0,
+        'MOVING',
+        'NONE',
+        BigInt.from(4),
+        BigInt.from(1),
+        BigInt.from(1),
+        BigInt.from(1),
+        BigInt.from(1),
+      ],
+      [
+        'VH-002',
+        'KA-01-AB-1002',
+        'Model B',
+        'No geofence',
+        8.0,
+        25.0,
+        'OFFLINE',
+        'CRITICAL',
+        BigInt.from(4),
+        BigInt.from(1),
+        BigInt.from(1),
+        BigInt.from(1),
+        BigInt.from(1),
+      ],
+      [
+        'VH-003',
+        'KA-01-AB-1003',
+        'Model C',
+        'Charging Hub',
+        14.0,
+        40.0,
+        'IDLE',
+        'WARNING',
+        BigInt.from(4),
+        BigInt.from(1),
+        BigInt.from(1),
+        BigInt.from(1),
+        BigInt.from(1),
+      ],
+      [
+        'VH-004',
+        'KA-01-AB-1004',
+        'Model D',
+        'Service Yard',
+        null,
+        null,
+        'STOPPED',
+        'NONE',
+        BigInt.from(4),
+        BigInt.from(1),
+        BigInt.from(1),
+        BigInt.from(1),
+        BigInt.from(1),
+      ],
     ]);
   }
 
@@ -79,10 +123,11 @@ void main() {
     expect(snapshot.rows[2].alertSeverity, AlertBadgeSeverity.warning);
 
     expect(conn.queries.length, 2);
-    final rowsSql = conn.queries.first;
-    expect(rowsSql, contains('ROW_NUMBER() OVER'));
-    expect(rowsSql, contains('ORDER BY event_time DESC'));
-    expect(rowsSql, contains("UNION ALL"));
+    final rowsSql = conn.queries.last;
+    expect(rowsSql, contains('COUNT(*) OVER () AS all_count'));
+    expect(rowsSql, contains('arg_max(value, event_time)'));
+    expect(rowsSql, contains('FILTER (WHERE signal_name = '));
+    expect(rowsSql, contains('GREATEST('));
     expect(rowsSql, contains('current_geofence_name'));
     expect(rowsSql, contains("TIMESTAMP '2026-08-25T11:50:00.000Z'"));
 

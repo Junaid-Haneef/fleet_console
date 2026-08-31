@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dart_duckdb/dart_duckdb.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -226,6 +227,35 @@ void main() {
       expect(rows.first.first, 'phase7');
       expect(openCalls, 1);
       expect(connectCalls, 1);
+
+      await database.close();
+    });
+
+    test('initialize retries after WAL autoload home directory failure', () async {
+      final fakeConn = _FakeConnection();
+      final walFile = File('$dbPath.wal')..writeAsStringSync('stale-wal');
+      final fakeDb = _FakeDatabase();
+      var openCalls = 0;
+
+      final database = AppDatabase(
+        databasePathResolver: () async => dbPath,
+        duckDbOpen: (_) async {
+          openCalls += 1;
+          if (openCalls == 1) {
+            throw DuckDBException(
+              "Extension Autoloading Error: Failure while replaying WAL file '$dbPath.wal': Can't find the home directory at ''",
+            );
+          }
+          return fakeDb;
+        },
+        duckDbConnect: (_) async => fakeConn,
+      );
+
+      await database.initialize();
+
+      expect(database.isInitialized, isTrue);
+      expect(openCalls, 2);
+      expect(walFile.existsSync(), isFalse);
 
       await database.close();
     });
@@ -478,6 +508,33 @@ void main() {
       await database.clearAllTablesData(includeAppMeta: true);
 
       expect(fakeConn.executedSql, contains('DELETE FROM app_meta'));
+
+      await database.close();
+    });
+
+    test('resetOperationalData clears data and reseeds default geofences', () async {
+      final fakeDb = _FakeDatabase();
+      final fakeConn = _FakeConnection();
+
+      final database = AppDatabase(
+        databasePathResolver: () async => dbPath,
+        duckDbOpen: (_) async => fakeDb,
+        duckDbConnect: (_) async => fakeConn,
+      );
+
+      await database.initialize();
+      fakeConn.executedSql.clear();
+
+      await database.resetOperationalData();
+
+      expect(fakeConn.executedSql.first, 'BEGIN TRANSACTION');
+      expect(fakeConn.executedSql, contains('DELETE FROM vehicles'));
+      expect(fakeConn.executedSql, contains('DELETE FROM geofences'));
+      expect(fakeConn.executedSql.last, isNot('COMMIT'));
+      expect(
+        fakeConn.executedSql.last,
+        contains('ON CONFLICT (geofence_version_id) DO NOTHING'),
+      );
 
       await database.close();
     });

@@ -103,10 +103,15 @@ void main() {
     final iAmOnIt = find.text('I am on it');
     final wrongAlert = find.text('Wrong alert');
     final somethingElse = find.text('Something else…');
+    final alertReasonInSheet = find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.text('Low battery'),
+    );
 
     expect(iAmOnIt, findsOneWidget);
     expect(wrongAlert, findsOneWidget);
     expect(somethingElse, findsOneWidget);
+    expect(alertReasonInSheet, findsOneWidget);
 
     final iTop = tester.getTopLeft(iAmOnIt).dy;
     final wTop = tester.getTopLeft(wrongAlert).dy;

@@ -21,7 +21,9 @@ Local-first Fleet Console for Bytebeam's Flutter take-home assignment.
 	- one active trip per vehicle DB constraint,
 	- late-packet/event-time deterministic recompute,
 	- recent trips visible in vehicle detail (no dedicated trips page by design).
-- Phase 8: pending (500 vehicles / 2M+ backfill + measurements).
+- Phase 8: in progress.
+	- Added dedicated Scale tab for operational reset + configurable replay presets.
+	- Added script harness for deterministic backfill and warm fleet-query p50/p95 sampling.
 - Phase 9: pending consolidation pass.
 - Phase 10: pending final README tour polish + log packaging.
 
@@ -36,6 +38,32 @@ flutter run -d android
 
 ```bash
 flutter test
+```
+
+## Phase 8 scale harness
+
+In-app (developer controls):
+- Open the `Scale` tab.
+- Use `Preset: 1 vehicle correctness` for deterministic stress checks.
+- Use `Preset: 500 vehicles / ~2M rows` for scale backfill.
+
+Script/debug action:
+
+```bash
+flutter run -d windows -t tool/scale_exercise.dart
+```
+
+Optional arguments:
+
+```bash
+flutter run -d windows -t tool/scale_exercise.dart -- \
+	--seed 42 \
+	--vehicle-count 500 \
+	--packets-per-vehicle 667 \
+	--duplicate-rate 0.2 \
+	--late-rate 0.25 \
+	--missing-rate 0.0 \
+	--query-runs 50
 ```
 
 ## Scope note
