@@ -25,4 +25,7 @@ part 'app/alert_tab_icon.dart';
 part 'app/bootstrap_error_app.dart';
 part 'app/main_app.dart';
 part 'app/main_shell.dart';
+part 'app/main_shell/main_shell_actions.dart';
+part 'app/main_shell/main_shell_navigation.dart';
+part 'app/main_shell/main_shell_tabs.dart';
 part 'app/shell_tab_controller.dart';
