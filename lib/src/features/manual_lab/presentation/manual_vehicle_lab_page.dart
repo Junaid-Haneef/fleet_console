@@ -75,7 +75,15 @@ class _ManualVehicleLabPageState extends State<ManualVehicleLabPage> {
   late final TextEditingController _vehicleIdController;
   late final TextEditingController _regController;
   late final TextEditingController _modelController;
-  late final TextEditingController _rowController;
+  late final TextEditingController _minutesAgoController;
+  late final TextEditingController _socController;
+  late final TextEditingController _speedController;
+  late final TextEditingController _ignitionController;
+  late final TextEditingController _batteryTempController;
+  late final TextEditingController _odometerController;
+  late final TextEditingController _latController;
+  late final TextEditingController _lonController;
+  late final TextEditingController _accuracyController;
 
   bool _busy = false;
   String? _status;
@@ -96,10 +104,15 @@ class _ManualVehicleLabPageState extends State<ManualVehicleLabPage> {
       now.hour,
       now.minute,
     );
-    _rowController = TextEditingController(
-      text:
-          'VH-LAB-001,KA-01-LB-1001,E-Truck X1,0,62,0,1,34,12000,12.971600,77.594600,8',
-    );
+    _minutesAgoController = TextEditingController(text: '0');
+    _socController = TextEditingController(text: '62');
+    _speedController = TextEditingController(text: '0');
+    _ignitionController = TextEditingController(text: '1');
+    _batteryTempController = TextEditingController(text: '34');
+    _odometerController = TextEditingController(text: '12000');
+    _latController = TextEditingController(text: '12.971600');
+    _lonController = TextEditingController(text: '77.594600');
+    _accuracyController = TextEditingController(text: '8');
   }
 
   @override
@@ -107,7 +120,15 @@ class _ManualVehicleLabPageState extends State<ManualVehicleLabPage> {
     _vehicleIdController.dispose();
     _regController.dispose();
     _modelController.dispose();
-    _rowController.dispose();
+    _minutesAgoController.dispose();
+    _socController.dispose();
+    _speedController.dispose();
+    _ignitionController.dispose();
+    _batteryTempController.dispose();
+    _odometerController.dispose();
+    _latController.dispose();
+    _lonController.dispose();
+    _accuracyController.dispose();
     super.dispose();
   }
 
@@ -124,7 +145,7 @@ class _ManualVehicleLabPageState extends State<ManualVehicleLabPage> {
     });
   }
 
-  Future<void> _appendRowFromCsv() async {
+  Future<void> _appendRowFromFields() async {
     final input = _readRowInput();
     if (input == null) {
       return;
@@ -137,6 +158,7 @@ class _ManualVehicleLabPageState extends State<ManualVehicleLabPage> {
       });
     });
   }
+
 
   Future<void> _runScenario(ManualScenario scenario) async {
     await _withBusy(() async {
@@ -153,56 +175,38 @@ class _ManualVehicleLabPageState extends State<ManualVehicleLabPage> {
   }
 
   ManualTelemetryRowInput? _readRowInput() {
-    final raw = _rowController.text.trim();
-    final parts = raw.split(',').map((value) => value.trim()).toList(growable: false);
-
-    if (parts.length < 12) {
-      setState(() {
-        _error =
-            'Row needs at least 12 comma-separated values: vehicle_id,reg_number,model,minutes_ago,soc,speed,ignition,battery_temp,odometer,lat,lon,accuracy_m';
-      });
-      return null;
-    }
-
-    final vehicleId = parts[0];
-    final regNumber = parts[1];
-    final model = parts[2];
-    final minutesAgo = int.tryParse(parts[3]);
-    final soc = double.tryParse(parts[4]);
-    final speed = double.tryParse(parts[5]);
-    final ignition = double.tryParse(parts[6]);
-    final batteryTemp = double.tryParse(parts[7]);
-    final odometer = double.tryParse(parts[8]);
-    final lat = double.tryParse(parts[9]);
-    final lon = double.tryParse(parts[10]);
-    final accuracy = double.tryParse(parts[11]);
+    final vehicleId = _vehicleIdController.text.trim();
+    final regNumber = _regController.text.trim();
+    final model = _modelController.text.trim();
 
     if (vehicleId.isEmpty || regNumber.isEmpty || model.isEmpty) {
       setState(() {
-        _error = 'Vehicle id, reg number, and model are required in row.';
+        _error = 'Vehicle ID, reg number, and model are required.';
       });
       return null;
     }
 
-    if (minutesAgo == null ||
-        minutesAgo < 0 ||
-        soc == null ||
-        speed == null ||
-        ignition == null ||
-        batteryTemp == null ||
-        odometer == null) {
+    final minutesAgo = int.tryParse(_minutesAgoController.text.trim());
+    final soc = double.tryParse(_socController.text.trim());
+    final speed = double.tryParse(_speedController.text.trim());
+    final ignition = double.tryParse(_ignitionController.text.trim());
+    final batteryTemp = double.tryParse(_batteryTempController.text.trim());
+    final odometer = double.tryParse(_odometerController.text.trim());
+    final lat = double.tryParse(_latController.text.trim());
+    final lon = double.tryParse(_lonController.text.trim());
+    final accuracy = double.tryParse(_accuracyController.text.trim());
+
+    if (minutesAgo == null || minutesAgo < 0 ||
+        soc == null || speed == null || ignition == null ||
+        batteryTemp == null || odometer == null) {
       setState(() {
-        _error = 'Invalid row input. Check numeric fields.';
+        _error = 'Invalid numeric field. Check minutes_ago, soc, speed, ignition, battery_temp, odometer.';
       });
       return null;
     }
 
     final includeLocation = lat != null && lon != null && accuracy != null;
     final eventTimeUtc = _timelineAnchorUtc.subtract(Duration(minutes: minutesAgo));
-
-    _vehicleIdController.text = vehicleId;
-    _regController.text = regNumber;
-    _modelController.text = model;
 
     return ManualTelemetryRowInput(
       vehicleId: vehicleId,
@@ -295,15 +299,16 @@ class _ManualVehicleLabPageState extends State<ManualVehicleLabPage> {
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Paste Single Row',
+                    'Append Telemetry Row',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Format: vehicle_id,reg_number,model,minutes_ago,soc,speed,ignition,battery_temp,odometer,lat,lon,accuracy_m[,expected]',
+                    'Uses Vehicle ID / Reg / Model from the card above.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -312,6 +317,7 @@ class _ManualVehicleLabPageState extends State<ManualVehicleLabPage> {
                     Expanded(
                       child: Text(
                         'Timeline anchor (UTC): ${_timelineAnchorUtc.toIso8601String()}',
+                        style: const TextStyle(fontSize: 12),
                       ),
                     ),
                     TextButton(
@@ -336,20 +342,40 @@ class _ManualVehicleLabPageState extends State<ManualVehicleLabPage> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  enabled: !_busy,
-                  controller: _rowController,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                  ),
+                Row(
+                  children: [
+                    Expanded(child: _field('minutes_ago', _minutesAgoController)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _field('soc (%)', _socController)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _field('speed (km/h)', _speedController)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: _field('ignition (0/1)', _ignitionController)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _field('battery_temp (°C)', _batteryTempController)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _field('odometer (km)', _odometerController)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: _field('lat', _latController)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _field('lon', _lonController)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _field('accuracy (m)', _accuracyController)),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: FilledButton.icon(
-                    onPressed: _busy ? null : _appendRowFromCsv,
+                    onPressed: _busy ? null : _appendRowFromFields,
                     icon: const Icon(Icons.add_chart),
                     label: const Text('Append This Row'),
                   ),
